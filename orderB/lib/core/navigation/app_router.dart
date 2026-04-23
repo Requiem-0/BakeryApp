@@ -29,35 +29,9 @@ final GlobalKey<NavigatorState> _profileNavigatorKey =
 final router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
-  errorBuilder: (context, state) => Scaffold(
-    appBar: AppBar(title: const Text('Page Not Found')),
-    body: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Lottie.asset('assets/animations/error_404.json',
-                width: 250, fit: BoxFit.contain),
-          ),
-          const SizedBox(height: 16),
-          Text('Something went wrong',
-              style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text("We couldn't find the page you're looking for.",
-              style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () {
-              while (context.canPop()) {
-                context.pop();
-              }
-              context.go('/home');
-            },
-            child: const Text('Return to Home'),
-          ),
-        ],
-      ),
-    ),
+  errorBuilder: (context, state) => const _RouteErrorScreen(
+    title: 'Page Not Found',
+    message: "We couldn't find the page you're looking for.",
   ),
   routes: [
     StatefulShellRoute.indexedStack(
@@ -76,7 +50,8 @@ final router = GoRouter(
                 GoRoute(
                   path: 'product',
                   builder: (context, state) {
-                    final product = state.extra as Product;
+                    final product = state.extra as Product?;
+                    if (product == null) return const _RouteErrorScreen();
                     return ProductDetailScreen(product: product);
                   },
                 ),
@@ -100,7 +75,8 @@ final router = GoRouter(
                 GoRoute(
                   path: 'product',
                   builder: (context, state) {
-                    final product = state.extra as Product;
+                    final product = state.extra as Product?;
+                    if (product == null) return const _RouteErrorScreen();
                     return ProductDetailScreen(product: product);
                   },
                 ),
@@ -124,14 +100,16 @@ final router = GoRouter(
                     GoRoute(
                       path: 'success',
                       builder: (context, state) {
-                        final order = state.extra as PlacedOrder;
+                        final order = state.extra as PlacedOrder?;
+                        if (order == null) return const _RouteErrorScreen();
                         return OrderSuccessScreen(order: order);
                       },
                       routes: [
                         GoRoute(
                           path: 'tracking',
                           builder: (context, state) {
-                            final order = state.extra as PlacedOrder;
+                            final order = state.extra as PlacedOrder?;
+                            if (order == null) return const _RouteErrorScreen();
                             return OrderTrackingScreen(order: order);
                           },
                         ),
@@ -194,3 +172,63 @@ final router = GoRouter(
     ),
   ],
 );
+
+/// Fallback screen shown when a route is invalid (404) or when required
+/// `state.extra` data is missing. Offers a one-tap return to home.
+class _RouteErrorScreen extends StatelessWidget {
+  final String title;
+  final String message;
+
+  const _RouteErrorScreen({
+    this.title = 'Something went wrong',
+    this.message = "We couldn't load this page.",
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Lottie.asset(
+                  'assets/animations/error_404.json',
+                  width: 250,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.error_outline_rounded,
+                    size: 96,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(title,
+                  style: theme.textTheme.headlineMedium,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(message,
+                  style: theme.textTheme.bodyMedium,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: () {
+                  while (context.canPop()) {
+                    context.pop();
+                  }
+                  context.go('/home');
+                },
+                child: const Text('Return to Home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

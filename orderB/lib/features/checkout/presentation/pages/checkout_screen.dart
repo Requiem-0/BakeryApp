@@ -34,8 +34,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final addr = context.watch<AddressProvider>().selected;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final receiptStyle =
-        theme.extension<AppThemeExtension>()!.receiptStyle;
+    final receiptStyle = theme.extension<AppThemeExtension>()?.receiptStyle ??
+        theme.textTheme.bodyMedium ??
+        const TextStyle();
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
     final subtotal = cart.subtotal;

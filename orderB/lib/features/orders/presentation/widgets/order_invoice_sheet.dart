@@ -22,8 +22,9 @@ class OrderInvoiceSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final receiptStyle =
-        theme.extension<AppThemeExtension>()!.receiptStyle;
+    final receiptStyle = theme.extension<AppThemeExtension>()?.receiptStyle ??
+        theme.textTheme.bodyMedium ??
+        const TextStyle();
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
 

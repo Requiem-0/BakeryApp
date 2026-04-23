@@ -57,11 +57,14 @@ class OrderCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                '· ${order.date.split(',').first}',
-                style: theme.textTheme.bodySmall?.copyWith(color: fgMuted),
+              Expanded(
+                child: Text(
+                  '· ${order.date.isEmpty ? '' : order.date.split(',').first}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: fgMuted),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               _StatusBadge(status: order.status, featured: featured),
             ],
           ),

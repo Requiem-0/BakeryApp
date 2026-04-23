@@ -24,35 +24,24 @@ class CategoryPill extends StatelessWidget {
       scale: active ? 1.05 : 1.0,
       duration: const Duration(milliseconds: 200),
       child: ChoiceChip(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (label == 'All') ...[
-              Text(
-                icon,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  height: 1.2,
-                  color: active ? colorScheme.onPrimary : colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: active ? colorScheme.onPrimary : colorScheme.onSurface,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 14,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ],
+        label: Text(
+          label == 'All' ? '$icon  $label' : label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: active ? colorScheme.onPrimary : colorScheme.onSurface,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 14,
+            letterSpacing: 0.1,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
         selected: active,
         onSelected: (_) => onTap(),
         showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        labelPadding: EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
         backgroundColor: theme.cardColor,
         selectedColor: colorScheme.primary,
         side: BorderSide(

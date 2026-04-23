@@ -230,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
-                    height: 140,
+                    height: 150,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
@@ -488,8 +488,17 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Flexible(
-            child: Lottie.asset('assets/animations/empty_search.json',
-                width: 200, repeat: false, fit: BoxFit.contain),
+            child: Lottie.asset(
+              'assets/animations/empty_search.json',
+              width: 200,
+              repeat: false,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.search_off_rounded,
+                size: 96,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
           const SizedBox(height: 14),
           Text('No items found',
