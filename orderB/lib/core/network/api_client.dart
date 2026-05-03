@@ -8,11 +8,15 @@ import '../storage/token_storage.dart';
 ///   { "status": "fail",   "message": "..." }
 ///   { "success": false,   "error":   "..." }
 class ApiClient {
-  static const String baseUrl = 'https://api.order.rebuzzpos.com/api';
+  static const String baseUrl = 'https://api.beta.order.rebuzzpos.com/api';
   static const Duration _timeout = Duration(seconds: 15);
 
   final Dio _dio;
   final TokenStorage _tokenStorage;
+
+  /// Fired once when any request returns 401. Wired by AuthProvider so an
+  /// expired/revoked token boots the user back to the login screen.
+  void Function()? onUnauthorized;
 
   ApiClient({Dio? dio, TokenStorage? tokenStorage})
       : _dio = dio ??
@@ -23,6 +27,7 @@ class ApiClient {
               sendTimeout: _timeout,
               contentType: 'application/json',
               responseType: ResponseType.json,
+              headers: {'app': 'customer'},
             )),
         _tokenStorage = tokenStorage ?? TokenStorage() {
     _dio.interceptors.add(
@@ -33,6 +38,12 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);
+        },
+        onError: (error, handler) {
+          if (error.response?.statusCode == 401) {
+            onUnauthorized?.call();
+          }
+          handler.next(error);
         },
       ),
     );

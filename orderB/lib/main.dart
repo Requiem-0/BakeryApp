@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-// Hide provider's ChangeNotifierProvider from Riverpod to avoid clash with
-// package:provider during the incremental migration. Phases 1-5 will replace
-// MultiProvider entries one at a time; once the last legacy ChangeNotifier is
-// gone, remove package:provider and this hide directive.
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
 import 'package:provider/provider.dart';
+import 'core/network/api_client.dart';
+import 'core/storage/token_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'features/auth/data/repositories/auth_repository.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/cart/presentation/providers/cart_provider.dart';
 import 'features/favourites/presentation/providers/favourites_provider.dart';
 import 'features/address/presentation/providers/address_provider.dart';
@@ -19,16 +18,30 @@ import 'core/constants.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const ProviderScope(child: App()));
+
+  final tokenStorage = TokenStorage();
+  final apiClient = ApiClient(tokenStorage: tokenStorage);
+  final authRepository = AuthRepository(apiClient: apiClient);
+  final authProvider = AuthProvider(
+    repository: authRepository,
+    tokenStorage: tokenStorage,
+  );
+  apiClient.onUnauthorized = authProvider.handleUnauthorized;
+  authProvider.bootstrap();
+
+  runApp(App(authProvider: authProvider));
 }
 
 class App extends StatelessWidget {
-  const App({super.key});
+  final AuthProvider authProvider;
+
+  const App({super.key, required this.authProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
         ChangeNotifierProvider(create: (_) => AddressProvider()),
