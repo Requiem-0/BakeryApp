@@ -7,6 +7,8 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/catalogue/data/repositories/product_repository.dart';
+import 'features/catalogue/presentation/providers/catalogue_provider.dart';
 import 'features/cart/presentation/providers/cart_provider.dart';
 import 'features/favourites/presentation/providers/favourites_provider.dart';
 import 'features/address/presentation/providers/address_provider.dart';
@@ -21,6 +23,7 @@ void main() {
 
   final tokenStorage = TokenStorage();
   final apiClient = ApiClient(tokenStorage: tokenStorage);
+
   final authRepository = AuthRepository(apiClient: apiClient);
   final authProvider = AuthProvider(
     repository: authRepository,
@@ -29,19 +32,34 @@ void main() {
   apiClient.onUnauthorized = authProvider.handleUnauthorized;
   authProvider.bootstrap();
 
-  runApp(App(authProvider: authProvider));
+  final productRepository = ProductRepository(apiClient: apiClient);
+  final catalogueProvider =
+      CatalogueProvider(repository: productRepository);
+  catalogueProvider.bootstrap();
+
+  runApp(App(
+    authProvider: authProvider,
+    catalogueProvider: catalogueProvider,
+  ));
 }
 
 class App extends StatelessWidget {
   final AuthProvider authProvider;
+  final CatalogueProvider catalogueProvider;
 
-  const App({super.key, required this.authProvider});
+  const App({
+    super.key,
+    required this.authProvider,
+    required this.catalogueProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        ChangeNotifierProvider<CatalogueProvider>.value(
+            value: catalogueProvider),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
         ChangeNotifierProvider(create: (_) => AddressProvider()),
