@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../constants.dart';
 import '../errors/api_failure.dart';
 import '../storage/token_storage.dart';
 
@@ -8,7 +9,9 @@ import '../storage/token_storage.dart';
 ///   { "status": "fail",   "message": "..." }
 ///   { "success": false,   "error":   "..." }
 class ApiClient {
-  static const String baseUrl = 'https://api.beta.order.rebuzzpos.com/api';
+  /// JSON API host. Driven by [AppConstants.useProd] so the dev/prod
+  /// swap is a single toggle in one file rather than three.
+  static const String baseUrl = AppConstants.apiBaseUrl;
   static const Duration _timeout = Duration(seconds: 15);
 
   final Dio _dio;
@@ -78,16 +81,25 @@ class ApiClient {
         }
       }
 
-      final fallback = switch (error.type) {
-        DioExceptionType.connectionTimeout ||
-        DioExceptionType.receiveTimeout ||
-        DioExceptionType.sendTimeout =>
-          'Request timed out. Please try again.',
-        DioExceptionType.connectionError => 'No internet connection.',
-        DioExceptionType.badCertificate => 'Secure connection failed.',
-        DioExceptionType.cancel => 'Request cancelled.',
-        _ => error.message ?? 'Something went wrong.',
-      };
+      String fallback;
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+          fallback = 'Request timed out. Please try again.';
+          break;
+        case DioExceptionType.connectionError:
+          fallback = 'No internet connection.';
+          break;
+        case DioExceptionType.badCertificate:
+          fallback = 'Secure connection failed.';
+          break;
+        case DioExceptionType.cancel:
+          fallback = 'Request cancelled.';
+          break;
+        default:
+          fallback = error.message ?? 'Something went wrong.';
+      }
       return ApiFailure(message: fallback, statusCode: status);
     }
     return ApiFailure(message: error.toString());

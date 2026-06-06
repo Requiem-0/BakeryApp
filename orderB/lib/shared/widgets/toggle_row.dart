@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/brandkit/app_colors.dart';
 
 /// A settings/notification toggle row.
 class ToggleRow extends StatelessWidget {

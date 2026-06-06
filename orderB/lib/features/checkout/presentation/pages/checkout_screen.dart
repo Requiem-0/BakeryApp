@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/cart/presentation/providers/cart_provider.dart';
 import '../../../../features/address/presentation/providers/address_provider.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../../features/cart/presentation/widgets/empty_cart_view.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/constants.dart';
 import '../../../../features/address/presentation/widgets/address_selector.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
+import '../../../../features/orders/presentation/providers/order_provider.dart';
+import '../../../../features/catalogue/presentation/providers/catalogue_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -20,13 +24,12 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  int _selectedPayment = 0;
+  bool _isPlacing = false;
 
-  static const _paymentMethods = [
-    (icon: '💵', label: 'Cash on Delivery', sub: 'Pay when your order arrives'),
-    (icon: '💳', label: '•••• 4289', sub: 'Visa ending in 4289'),
-    (icon: '🍎', label: 'Apple Pay', sub: 'Express checkout'),
-  ];
+  // COD is the only supported payment method right now — Fonepay /
+  // online payment is on the backlog. Keeping this as a list of one
+  // makes adding more methods a no-op when the time comes; the bottom
+  // sheet just becomes useful again.
 
   @override
   Widget build(BuildContext context) {
@@ -249,20 +252,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         _SelectableCard(
                           icon: Icons.account_balance_wallet_rounded,
                           iconColor: colors.error,
-                          title: _paymentMethods[_selectedPayment].label,
-                          subtitle: _paymentMethods[_selectedPayment].sub,
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (_) => _PaymentBottomSheet(
-                                methods: _paymentMethods,
-                                selectedIndex: _selectedPayment,
-                                onSelect: (i) {
-                                  setState(() => _selectedPayment = i);
-                                },
-                              ),
-                            );
-                          },
+                          title: 'Cash on Delivery',
+                          subtitle: 'Pay when your order arrives',
+                          // No onTap — only one payment method right now,
+                          // so the card is informational. Re-enable the
+                          // bottom sheet when online payment (Fonepay)
+                          // lands.
+                          onTap: null,
                         ),
                       ],
                     ),
@@ -274,31 +270,113 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     left: 0,
                     right: 0,
                     child: PrimaryButton(
-                      label:
-                          'Place Order — ${AppConstants.formatPrice(cart.total)}',
-                      onTap: () {
-                        final eta = DateFormat('h:mm a').format(
-                            DateTime.now()
-                                .add(const Duration(minutes: 25)));
-                        final order = PlacedOrder(
-                          id: '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}',
-                          eta: eta,
-                          items: cart.items
-                              .map((i) => PlacedOrderItem(
-                                    name: i.product.name,
-                                    image: i.product.image,
-                                    quantity: i.quantity,
-                                    price: i.product.price,
-                                    selectedVariants: i.selectedVariants,
-                                  ))
-                              .toList(),
-                          total: cart.total,
-                          addressLabel: addr.label,
-                          addressFull: addr.address,
-                        );
-                        cart.clear();
-                        context.go('/cart/checkout/success', extra: order);
-                      },
+                      label: _isPlacing
+                          ? 'Placing Order...'
+                          : 'Place Order — ${AppConstants.formatPrice(cart.total)}',
+                      onTap: _isPlacing
+                          ? null
+                          : () async {
+                              // Guests browse the cart + checkout summary
+                              // freely, but placing an actual order needs
+                              // a session. Push /login; LoginScreen pops
+                              // back here on success so the user can tap
+                              // again to place the order.
+                              final auth = context.read<AuthProvider>();
+                              if (!auth.isAuthenticated) {
+                                context.push('/login');
+                                return;
+                              }
+
+                              setState(() => _isPlacing = true);
+
+                              final liveProducts = context.read<CatalogueProvider>().products;
+
+                              final itemsJson = cart.items.map((i) {
+                                String finalProductId = i.product.id;
+                                
+                                // If the ID is synthetic, try to find a matching live product by name
+                                if (finalProductId.startsWith('reorder_')) {
+                                  try {
+                                    final match = liveProducts.firstWhere(
+                                      (p) => p.name.toLowerCase() == i.product.name.toLowerCase(),
+                                    );
+                                    finalProductId = match.id;
+                                    debugPrint('✅ Checkout: resolved reorder ID "${i.product.id}" → live ID "$finalProductId"');
+                                  } catch (_) {
+                                    debugPrint('⚠️ Checkout: could not resolve reorder ID "${i.product.id}" for "${i.product.name}" — keeping synthetic ID');
+                                  }
+                                }
+
+                                final String? selectedVariant = i.selectedVariants.isNotEmpty
+                                    ? i.selectedVariants.values.first
+                                    : null;
+                                return {
+                                  'product': finalProductId,
+                                  'quantity': i.quantity,
+                                  'variant': selectedVariant,
+                                  'addons': const [],
+                                  'note': '',
+                                  'discounts': const [],
+                                };
+                              }).toList();
+
+                              // COD-only flow — the repo defaults
+                              // [paymentMethod] to 'cod' and [paidStatus]
+                              // to 'pending', so we just omit them here.
+                              // When Fonepay lands, pass the actual
+                              // selection through.
+                              final orderProvider =
+                                  context.read<OrderProvider>();
+                              final success =
+                                  await orderProvider.placeLiveOrder(
+                                businessId: AppConstants.bakeryBusinessId,
+                                items: itemsJson,
+                                ticketName: 'App Order',
+                                deliveryLocation: addr.address,
+                              );
+
+                              if (!mounted) return;
+                              setState(() => _isPlacing = false);
+
+                              if (success) {
+                                final eta = DateFormat('h:mm a').format(
+                                    DateTime.now()
+                                        .add(const Duration(minutes: 25)));
+                                // Prefer the server-assigned ticket _id;
+                                // display the last 4 chars uppercased so
+                                // the customer sees a clean "#OD-XXXX"
+                                // reference instead of a 24-char hex.
+                                final serverId = orderProvider.lastPlacedOrderId;
+                                final displayId = (serverId != null &&
+                                        serverId.length >= 4)
+                                    ? '#OD-${serverId.substring(serverId.length - 4).toUpperCase()}'
+                                    : '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}';
+                                final order = PlacedOrder(
+                                  id: displayId,
+                                  eta: eta,
+                                  items: cart.items
+                                      .map((i) => PlacedOrderItem(
+                                            name: i.product.name,
+                                            image: i.product.imageUrl ?? i.product.image,
+                                            quantity: i.quantity,
+                                            price: i.product.price,
+                                            selectedVariants: i.selectedVariants,
+                                          ))
+                                      .toList(),
+                                  total: cart.total,
+                                  addressLabel: addr.label,
+                                  addressFull: addr.address,
+                                );
+                                cart.clear();
+                                context.go('/checkout/success', extra: order);
+                              } else {
+                                AppToast.error(
+                                  context,
+                                  orderProvider.errorMessage ??
+                                      'Failed to place order.',
+                                );
+                              }
+                            },
                     ),
                   ),
                 ],
@@ -413,108 +491,6 @@ class _SelectableCard extends StatelessWidget {
   }
 }
 
-class _PaymentBottomSheet extends StatelessWidget {
-  final List<({String icon, String label, String sub})> methods;
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
-
-  const _PaymentBottomSheet({
-    required this.methods,
-    required this.selectedIndex,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: theme.dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text('Select Payment Method',
-              style: theme.textTheme.headlineLarge?.copyWith(fontSize: 18)),
-          const SizedBox(height: 16),
-          ...methods.asMap().entries.map((e) {
-            final i = e.key;
-            final m = e.value;
-            final isSelected = i == selectedIndex;
-            return GestureDetector(
-              onTap: () {
-                onSelect(i);
-                Navigator.pop(context);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? theme.dividerColor
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected ? colors.primary : theme.dividerColor,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? colors.primary.withValues(alpha: 0.1)
-                            : theme.dividerColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(m.icon,
-                          style: const TextStyle(fontSize: 18)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(m.label,
-                              style: theme.textTheme.bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.w500)),
-                          Text(m.sub,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    if (isSelected)
-                      Icon(Icons.check_rounded,
-                          color: colors.primary, size: 20),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
+// _PaymentBottomSheet removed — only one payment method (COD) is
+// supported right now, so there's nothing to switch between. Re-add when
+// online payment lands.

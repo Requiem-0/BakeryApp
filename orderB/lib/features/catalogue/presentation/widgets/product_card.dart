@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_decorations.dart';
-import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/brandkit/app_decorations.dart';
+import '../../../../core/brandkit/app_text_styles.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
+import 'product_image_box.dart';
 
 /// List-view product card with live qty counter on the add button.
 class ProductCard extends StatelessWidget {
@@ -41,16 +42,15 @@ class ProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  // Emoji image
+                  // Product image (network with emoji fallback)
                   Stack(
                     children: [
-                      Container(
+                      ProductImageBox(
+                        imageUrl: product.imageUrl,
+                        emojiFallback: product.image,
+                        emojiFontSize: 40,
                         width: 90,
                         height: 90,
-                        decoration: AppDecorations.productImage,
-                        alignment: Alignment.center,
-                        child: Text(product.image,
-                            style: const TextStyle(fontSize: 40)),
                       ),
                     ],
                   ),
@@ -137,7 +137,7 @@ class ProductCard extends StatelessWidget {
 /// Compact "+" that expands to "−  N  +" once qty > 0.
 class AddCounter extends StatelessWidget {
   final int qty;
-  final int productId;
+  final String productId;
   final VoidCallback onAdd;
 
   const AddCounter({

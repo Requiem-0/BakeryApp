@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../data/models/address.dart';
-import '../../../catalogue/data/datasources/catalogue_local_datasource.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/brandkit/app_colors.dart';
+import '../providers/address_provider.dart';
 
 /// Address selector row in multiple variants.
 enum AddressSelectorVariant { header, compact, full }
 
 class AddressSelector extends StatelessWidget {
-  final int selectedId;
+  final String selectedId;
   final VoidCallback onTap;
   final AddressSelectorVariant variant;
 
@@ -18,15 +19,11 @@ class AddressSelector extends StatelessWidget {
     this.variant = AddressSelectorVariant.full,
   });
 
-  Address get _address => CatalogueLocalDatasource.savedAddresses.firstWhere(
-        (a) => a.id == selectedId,
-        orElse: () => CatalogueLocalDatasource.savedAddresses.first,
-      );
-
   @override
   Widget build(BuildContext context) {
+    final addrProv = context.watch<AddressProvider>();
+    final addr = addrProv.selected;
     final theme = Theme.of(context);
-    final addr = _address;
     final isHeader = variant == AddressSelectorVariant.header;
     final isCompact = variant == AddressSelectorVariant.compact;
 
@@ -46,7 +43,6 @@ class AddressSelector extends StatelessWidget {
               )
             : null,
         child: Row(
-          mainAxisSize: isHeader ? MainAxisSize.min : MainAxisSize.max,
           children: [
             if (!isHeader) ...[
               Container(
@@ -61,7 +57,7 @@ class AddressSelector extends StatelessWidget {
               ),
               SizedBox(width: isCompact ? 8 : 10),
             ],
-            Flexible(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -71,33 +67,47 @@ class AddressSelector extends StatelessWidget {
                       'Pickup from ✦',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(fontSize: 10, letterSpacing: 0.3),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isHeader) ...[
+                  if (isHeader)
+                    Row(
+                      children: [
                         const Text('📍', style: TextStyle(fontSize: 14)),
                         const SizedBox(width: 6),
-                      ],
-                      Flexible(
-                        child: Text(
-                          isHeader ? addr.address.split(',').first : addr.label,
-                          style: isHeader
-                              ? theme.textTheme.headlineSmall
-                                  ?.copyWith(fontSize: 16)
-                              : theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: isCompact ? 13 : 14,
-                                ),
-                          overflow: TextOverflow.ellipsis,
+                        Flexible(
+                          child: Text(
+                            addr.address.split(',').first,
+                            style: theme.textTheme.headlineSmall
+                                ?.copyWith(fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      if (!isHeader) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          size: 18,
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            addr.label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              fontSize: isCompact ? 13 : 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         _typeBadge(context, addr.type),
                       ],
-                    ],
-                  ),
+                    ),
                   if (!isHeader)
                     Text(
                       addr.address,
@@ -107,12 +117,14 @@ class AddressSelector extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
-              size: isHeader ? 18 : 20,
-            ),
+            if (!isHeader) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
           ],
         ),
       ),
@@ -142,8 +154,8 @@ class AddressSelector extends StatelessWidget {
 
 /// Modal bottom sheet to select an address.
 class AddressBottomSheet extends StatelessWidget {
-  final int selectedId;
-  final ValueChanged<int> onSelect;
+  final String selectedId;
+  final ValueChanged<String> onSelect;
   final VoidCallback onAddNew;
 
   const AddressBottomSheet({
@@ -154,18 +166,28 @@ class AddressBottomSheet extends StatelessWidget {
   });
 
   /// Show the address selection bottom sheet.
+  ///
+  /// "Add new address" closes the sheet and pushes `/profile/addresses/add`
+  /// by default. Pass [onAddNew] to override (e.g. open a modal flow
+  /// instead of routing).
   static void show(
     BuildContext context, {
-    required int selectedId,
-    required ValueChanged<int> onSelect,
+    required String selectedId,
+    required ValueChanged<String> onSelect,
+    VoidCallback? onAddNew,
   }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => AddressBottomSheet(
         selectedId: selectedId,
         onSelect: onSelect,
-        onAddNew: () => Navigator.pop(context),
+        onAddNew: onAddNew ??
+            () {
+              Navigator.pop(context);
+              context.push('/profile/addresses/add');
+            },
       ),
     );
   }
@@ -174,6 +196,8 @@ class AddressBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final addrProv = context.watch<AddressProvider>();
+    final addresses = addrProv.addresses;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -181,10 +205,11 @@ class AddressBottomSheet extends StatelessWidget {
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Center(
             child: Container(
               width: 36,
@@ -199,7 +224,7 @@ class AddressBottomSheet extends StatelessWidget {
           Text('Select Address',
               style: theme.textTheme.headlineLarge?.copyWith(fontSize: 18)),
           const SizedBox(height: 16),
-          ...CatalogueLocalDatasource.savedAddresses.map((addr) {
+          ...addresses.map((addr) {
             final isSelected = addr.id == selectedId;
             return GestureDetector(
               onTap: () {
@@ -231,7 +256,7 @@ class AddressBottomSheet extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child:
-                          Text(addr.icon, style: const TextStyle(fontSize: 18)),
+                          const Text('📍', style: TextStyle(fontSize: 18)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -255,7 +280,6 @@ class AddressBottomSheet extends StatelessWidget {
               ),
             );
           }),
-          // Add new
           GestureDetector(
             onTap: onAddNew,
             child: Container(
@@ -282,7 +306,8 @@ class AddressBottomSheet extends StatelessWidget {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

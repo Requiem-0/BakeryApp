@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/brandkit/app_theme.dart';
+import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
+import '../widgets/product_image_box.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../cart/presentation/widgets/product_bottom_cta.dart';
 
 import 'package:go_router/go_router.dart';
@@ -23,18 +26,64 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 0;
-  final TextEditingController _instructionsCtrl = TextEditingController();
 
-  late final List<int> _selectedVariants =
-      List.filled(widget.product.variants.length, 0);
+  /// Currently-picked [VariantItem._id]. Null only before initState lands
+  /// the default selection or when the product has no variants at all.
+  /// We track by ID (not list index) so the picker degrades gracefully
+  /// if variantItems are reordered between fetches.
+  String? _selectedVariantItemId;
 
+  /// Resolves the user's pick to a concrete [VariantItem]. Defaults to
+  /// the first available variantItem until the user makes a choice — so
+  /// the live price line never reads as 0 on first paint.
+  VariantItem? get _selectedVariantItem {
+    final items = widget.product.variantItems;
+    if (items.isEmpty) return null;
+    if (_selectedVariantItemId != null) {
+      for (final v in items) {
+        if (v.id == _selectedVariantItemId) return v;
+      }
+    }
+    return items.first;
+  }
+
+  /// Legacy field for the cart's [CartItem.selectedVariants] payload —
+  /// derived from whichever variantItem is currently picked, so the
+  /// option-title labels reach the cart unchanged.
   Map<String, String> get _variantSelections {
-    final variants = widget.product.variants;
+    final picked = _selectedVariantItem;
+    final groups = widget.product.variants;
+    if (picked == null || groups.isEmpty) return const {};
     return {
-      for (var i = 0; i < variants.length; i++)
-        variants[i].title: variants[i].options[_selectedVariants[i]],
+      for (var i = 0; i < groups.length && i < picked.optionValues.length; i++)
+        groups[i].title: picked.optionValues[i],
     };
   }
+
+  /// Effective per-unit price: the chosen variant's price if any,
+  /// otherwise the product's base price.
+  double get _effectivePrice =>
+      _selectedVariantItem?.price ?? widget.product.price;
+
+  /// Per-unit addon total — sum of (addon price × selected qty) across
+  /// every addon the user has toggled on.
+  double get _selectedAddonsTotal {
+    if (_selectedAddons.isEmpty) return 0;
+    double sum = 0;
+    for (final entry in _selectedAddons.entries) {
+      final addon = widget.product.addons.firstWhere(
+        (a) => a.id == entry.key,
+        orElse: () =>
+            const ProductAddon(id: '', name: '', price: 0),
+      );
+      sum += addon.price * entry.value;
+    }
+    return sum;
+  }
+
+  /// Map of addon `_id` → selected quantity. Empty means none. The cart
+  /// layer expects exactly this shape on `addProduct`.
+  final Map<String, int> _selectedAddons = {};
 
   @override
   void initState() {
@@ -55,7 +104,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   void dispose() {
-    _instructionsCtrl.dispose();
     super.dispose();
   }
 
@@ -64,7 +112,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final favProv = context.watch<FavouritesProvider>();
     final isFav = favProv.isFavourite(widget.product.id);
 
-    final double totalPrice = widget.product.price * _quantity;
+    final double totalPrice =
+        (_effectivePrice + _selectedAddonsTotal) * _quantity;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -85,7 +134,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   GestureDetector(
                     onTap: () => favProv.toggle(widget.product.id),
                     child: Container(
-                      margin: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(
+                          left: 8, right: 16, top: 8, bottom: 8),
                       width: 40,
                       alignment: Alignment.center,
                       child: Icon(
@@ -96,21 +146,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         size: 22,
                       ),
                     ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .scaffoldBackgroundColor
-                          .withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(Icons.share_outlined,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        size: 18),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -123,8 +158,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Text(widget.product.image,
-                            style: const TextStyle(fontSize: 110)),
+                        ProductImageBox(
+                          imageUrl: widget.product.imageUrl,
+                          emojiFallback: widget.product.image,
+                          emojiFontSize: 110,
+                          width: 220,
+                          height: 220,
+                        ),
                         if (widget.product.badge != null)
                           Positioned(
                             bottom: 50,
@@ -171,143 +211,154 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       // Name
                       Text(widget.product.name,
                           style: Theme.of(context).textTheme.displayMedium),
-                      const SizedBox(height: 6),
-                      Text(widget.product.time,
-                          style: Theme.of(context).textTheme.bodySmall),
-                      const SizedBox(height: 12),
 
-                      // Description
-                      Text(widget.product.description,
+                      // Subtitle (description first-clause or business name).
+                      // Skip the slot entirely when empty so the chips
+                      // don't float in a void of whitespace.
+                      if (widget.product.time.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(widget.product.time,
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ],
+
+                      // Live unit price hint — shows what the customer
+                      // will pay per unit at their current variant +
+                      // addon selection. Always visible so the picker
+                      // gives immediate price feedback, not just when
+                      // they tap "+".
+                      if ((_effectivePrice + _selectedAddonsTotal) > 0) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          AppConstants.formatPrice(
+                              _effectivePrice + _selectedAddonsTotal),
                           style: Theme.of(context)
                               .textTheme
-                              .bodyMedium
+                              .headlineMedium
                               ?.copyWith(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.color,
-                                  height: 1.6)),
-                      const SizedBox(height: 18),
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+
+                      // Description — same story as the subtitle slot.
+                      if (widget.product.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(widget.product.description,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.color,
+                                    height: 1.6)),
+                      ],
 
                       // Tags
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: widget.product.tags.map((tag) {
-                          final isGood = tag.contains('Gluten') ||
-                              tag.contains('Vegan') ||
-                              tag.contains('Organic');
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isGood
-                                  ? Theme.of(context)
-                                      .colorScheme
-                                      .secondaryContainer
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .errorContainer,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              tag,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: isGood
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .onSecondaryContainer
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onErrorContainer,
-                                    fontSize: 12,
-                                  ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                      if (widget.product.tags.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: widget.product.tags.map((tag) {
+                            final isGood = tag.contains('Gluten') ||
+                                tag.contains('Vegan') ||
+                                tag.contains('Organic');
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isGood
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .secondaryContainer
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .errorContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                tag,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: isGood
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .onSecondaryContainer
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onErrorContainer,
+                                      fontSize: 12,
+                                    ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                       const SizedBox(height: 24),
 
-                      // Variant groups
-                      ...List.generate(widget.product.variants.length, (gi) {
-                        final group = widget.product.variants[gi];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionHeader(title: group.title),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: List.generate(
-                                  group.options.length, (oi) {
-                                final isActive =
-                                    _selectedVariants[gi] == oi;
-                                return _VariantChip(
-                                  label: group.options[oi],
-                                  isActive: isActive,
-                                  onTap: () => setState(
-                                      () => _selectedVariants[gi] = oi),
-                                );
-                              }),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-                        );
-                      }),
+                      // Variants — vertical list of selectable rows, each
+                      // showing the variant's label and resolved price on
+                      // the right. Matches the reference UX: customer can
+                      // compare prices at a glance instead of tapping
+                      // chips one at a time. Multi-axis variants flatten
+                      // into one list ("Chicken · steam"); single-axis
+                      // shows the label as-is. Hidden entirely for plain
+                      // products with no variantItems.
+                      if (widget.product.variantItems.isNotEmpty) ...[
+                        const _SectionHeader(title: 'Variants'),
+                        const SizedBox(height: 12),
+                        ...widget.product.variantItems.map((v) {
+                          final isSelected =
+                              v.id == _selectedVariantItem?.id;
+                          return _VariantRow(
+                            label: v.label,
+                            price: v.price,
+                            isSelected: isSelected,
+                            onTap: () => setState(() {
+                              _selectedVariantItemId = v.id;
+                            }),
+                          );
+                        }),
+                        const SizedBox(height: 24),
+                      ],
 
-                      // Special Instructions
-                      Text(
-                        'Special Instructions',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _instructionsCtrl,
-                        maxLines: 4,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                        decoration: InputDecoration(
-                          hintText: 'E.g. No onions, sauce on the side...',
-                          hintStyle:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant
-                                        .withValues(alpha: 0.6),
-                                  ),
-                          filled: true,
-                          fillColor: Theme.of(context).cardColor,
-                          contentPadding: const EdgeInsets.all(20),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                                color: Theme.of(context).dividerColor),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                                color: Theme.of(context).dividerColor),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withValues(alpha: 0.5)),
-                          ),
-                        ),
-                      ),
+                      // Addons — optional add-ons per the product's
+                      // `addons[]` array (e.g. Egg, Cheese). Each row has
+                      // a checkbox-style toggle and a quantity stepper.
+                      if (widget.product.addons.isNotEmpty) ...[
+                        const _SectionHeader(title: 'Add-ons'),
+                        const SizedBox(height: 12),
+                        ...widget.product.addons.map((addon) {
+                          final qty = _selectedAddons[addon.id] ?? 0;
+                          return _AddonRow(
+                            addon: addon,
+                            quantity: qty,
+                            onChanged: (next) {
+                              setState(() {
+                                if (next <= 0) {
+                                  _selectedAddons.remove(addon.id);
+                                } else {
+                                  _selectedAddons[addon.id] = next;
+                                }
+                              });
+                            },
+                          );
+                        }),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Special-instructions field used to live here.
+                      // Removed because the cart and ticket POST schemas
+                      // have no slot for per-item notes — keeping the
+                      // textbox would have been fake UI (typed text
+                      // never reaching the backend). Re-add once the
+                      // backend grows a `note` field on the cart line
+                      // or ticket item.
                       const SizedBox(
                           height: 120), // Padding for the floating action bar
                     ],
@@ -338,6 +389,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               } else {
                 cart.addProduct(widget.product,
                     quantity: _quantity,
+                    variant: _selectedVariantItem,
+                    addons: Map.unmodifiable(_selectedAddons),
                     selectedVariants: _variantSelections);
               }
             },
@@ -347,14 +400,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 if (!cart.contains(widget.product)) {
                   cart.addProduct(widget.product,
                       quantity: _quantity,
+                      variant: _selectedVariantItem,
+                      addons: Map.unmodifiable(_selectedAddons),
                       selectedVariants: _variantSelections);
                 }
                 context.push('/cart');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Please select at least 1 item')),
-                );
+                AppToast.error(context, 'Please select at least 1 item');
               }
             },
           ),
@@ -393,41 +445,216 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _VariantChip extends StatelessWidget {
+/// One row in the variant picker. Renders the variant's label on the
+/// left, its resolved price on the right, and a radio-style circle in
+/// the lead position that fills in when picked. Whole row is the tap
+/// target — easier to hit than a small radio dot.
+class _VariantRow extends StatelessWidget {
   final String label;
-  final bool isActive;
+  final double price;
+  final bool isSelected;
   final VoidCallback onTap;
 
-  const _VariantChip({
+  const _VariantRow({
     required this.label,
-    required this.isActive,
+    required this.price,
+    required this.isSelected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isActive ? colors.primary : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? colors.primary : Theme.of(context).dividerColor,
-            width: 1.5,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colors.primary.withValues(alpha: 0.08)
+                : theme.cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? colors.primary : theme.dividerColor,
+              width: 1.4,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: isSelected ? colors.primary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? colors.primary : theme.dividerColor,
+                    width: 1.5,
+                  ),
+                ),
+                child: isSelected
+                    ? Icon(Icons.check_rounded,
+                        size: 14, color: colors.onPrimary)
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                AppConstants.formatPrice(price),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isActive ? colors.onPrimary : colors.onSurface,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
+  }
+}
+
+/// One row in the addon picker. Toggles on with a tap on the row body
+/// (sets qty to 1 from 0, or 0 from any positive); the −/+ controls
+/// nudge the quantity once it's on. The whole row collapses visually
+/// when qty == 0 so the picker stays scannable for products with many
+/// add-ons.
+class _AddonRow extends StatelessWidget {
+  final ProductAddon addon;
+  final int quantity;
+  final ValueChanged<int> onChanged;
+
+  const _AddonRow({
+    required this.addon,
+    required this.quantity,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isOn = quantity > 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => onChanged(isOn ? 0 : 1),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isOn
+                ? colors.primary.withValues(alpha: 0.08)
+                : theme.cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isOn ? colors.primary : theme.dividerColor,
+              width: 1.4,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Check-state indicator
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: isOn ? colors.primary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isOn ? colors.primary : theme.dividerColor,
+                    width: 1.5,
+                  ),
+                ),
+                child: isOn
+                    ? Icon(Icons.check_rounded,
+                        size: 14, color: colors.onPrimary)
+                    : null,
               ),
+              const SizedBox(width: 12),
+              // Name + price
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(addon.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        )),
+                    Text('+${AppConstants.formatPrice(addon.price)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        )),
+                  ],
+                ),
+              ),
+              // Qty stepper — only shown once the addon is toggled on
+              if (isOn)
+                Row(
+                  children: [
+                    _AddonStepperButton(
+                      icon: Icons.remove_rounded,
+                      onTap: () => onChanged(quantity - 1),
+                    ),
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '$quantity',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    _AddonStepperButton(
+                      icon: Icons.add_rounded,
+                      onTap: () => onChanged(quantity + 1),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _AddonStepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _AddonStepperButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: colors.primary,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, size: 16, color: colors.onPrimary),
       ),
     );
   }

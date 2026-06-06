@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/item_image.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/placed_order.dart';
 
@@ -14,10 +15,28 @@ class OrderTrackingScreen extends StatelessWidget {
     (icon: '📦', label: 'Ready', desc: 'Your order is ready'),
   ];
 
+  int _activeStep(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 0;
+      case 'processing':
+        return 1;
+      case 'out for delivery':
+      case 'ready':
+        return 2;
+      default:
+        return ['delivered', 'picked up', 'cancelled', 'completed']
+                .contains(status.toLowerCase())
+            ? 2
+            : 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final activeStep = _activeStep(order.status);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -29,7 +48,7 @@ class OrderTrackingScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
           children: [
-            // Order ID & ETA
+            // Order ID & status
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -41,9 +60,11 @@ class OrderTrackingScreen extends StatelessWidget {
                       children: [
                         Text(order.id,
                             style: theme.textTheme.headlineSmall),
-                        const SizedBox(height: 4),
-                        Text('Est. ready by ${order.eta}',
-                            style: theme.textTheme.bodySmall),
+                        if (order.eta.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text('Est. ready by ${order.eta}',
+                              style: theme.textTheme.bodySmall),
+                        ],
                       ],
                     ),
                     Container(
@@ -53,7 +74,7 @@ class OrderTrackingScreen extends StatelessWidget {
                         color: colors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('In Progress',
+                      child: Text(order.status,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colors.primary,
                             fontWeight: FontWeight.w600,
@@ -77,7 +98,8 @@ class OrderTrackingScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     ...List.generate(_steps.length, (i) {
                       final s = _steps[i];
-                      final isActive = i == 0;
+                      final isCompleted = i < activeStep;
+                      final isActive = i == activeStep;
                       final isLast = i == _steps.length - 1;
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +111,7 @@ class OrderTrackingScreen extends StatelessWidget {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: isActive
+                                  color: isCompleted || isActive
                                       ? colors.primaryContainer
                                       : theme.dividerColor
                                           .withValues(alpha: 0.5),
@@ -103,7 +125,7 @@ class OrderTrackingScreen extends StatelessWidget {
                                 Container(
                                   width: 2,
                                   height: 30,
-                                  color: isActive
+                                  color: isCompleted || isActive
                                       ? colors.primary
                                       : theme.dividerColor,
                                 ),
@@ -121,10 +143,10 @@ class OrderTrackingScreen extends StatelessWidget {
                                   Text(s.label,
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
-                                            fontWeight: isActive
+                                            fontWeight: isCompleted || isActive
                                                 ? FontWeight.w600
                                                 : FontWeight.w400,
-                                            color: isActive
+                                            color: isCompleted || isActive
                                                 ? colors.onSurface
                                                 : colors.onSurfaceVariant,
                                           )),
@@ -171,8 +193,7 @@ class OrderTrackingScreen extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Row(
                             children: [
-                              Text(item.image,
-                                  style: const TextStyle(fontSize: 20)),
+                              ItemImage(image: item.image, size: 20),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -215,34 +236,36 @@ class OrderTrackingScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            if (order.addressLabel.isNotEmpty || order.addressFull.isNotEmpty) ...[
+              const SizedBox(height: 24),
 
-            // Pickup location
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Icon(Icons.location_on_rounded,
-                        color: colors.error, size: 22),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(order.addressLabel,
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600)),
-                          Text(order.addressFull,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(fontSize: 12)),
-                        ],
+              // Pickup location
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on_rounded,
+                          color: colors.error, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(order.addressLabel,
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(order.addressFull,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(fontSize: 12)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/item_image.dart';
 import '../../data/models/order.dart';
 import '../../../../core/constants.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/brandkit/app_theme.dart';
 
 /// Bottom sheet showing a receipt-style invoice for a past order.
 class OrderInvoiceSheet extends StatelessWidget {
@@ -111,8 +112,7 @@ class OrderInvoiceSheet extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(item.image,
-                                  style: const TextStyle(fontSize: 16)),
+                              ItemImage(image: item.image, size: 16),
                               const SizedBox(width: 8),
                               Expanded(
                                 flex: 5,

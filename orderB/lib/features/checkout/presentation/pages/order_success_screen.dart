@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../../shared/widgets/primary_button.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/item_image.dart';
+import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/constants.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
 
@@ -41,20 +41,6 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
     super.dispose();
   }
 
-  void _shareOrder() {
-    final o = widget.order;
-    final items = o.items
-        .map((i) =>
-            '${i.name} x${i.quantity} — ${AppConstants.formatPrice(i.price * i.quantity)}')
-        .join('\n');
-    final text = 'Order ${o.id}\n\n'
-        '$items\n\n'
-        'Total: ${AppConstants.formatPrice(o.total)}\n'
-        'Pickup: ${o.addressLabel}, ${o.addressFull}\n'
-        'Est. ready by ${o.eta}';
-    SharePlus.instance.share(ShareParams(text: text));
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -68,16 +54,6 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              // ─── Share button ──────────────────────────────
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  onPressed: _shareOrder,
-                  icon: Icon(Icons.share_outlined,
-                      color: colors.onSurfaceVariant, size: 22),
-                ),
-              ),
               const Spacer(flex: 2),
 
               // ─── Animated checkmark ─────────────────────────
@@ -140,8 +116,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Row(
                                 children: [
-                                  Text(item.image,
-                                      style: const TextStyle(fontSize: 20)),
+                                  ItemImage(image: item.image, size: 20),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
@@ -225,7 +200,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
               // ─── CTAs ───────────────────────────────────────
               PrimaryButton(
                 label: 'Track My Order',
-                onTap: () => context.push('/cart/checkout/success/tracking',
+                onTap: () => context.push('/checkout/success/tracking',
                     extra: o),
               ),
               const SizedBox(height: 12),

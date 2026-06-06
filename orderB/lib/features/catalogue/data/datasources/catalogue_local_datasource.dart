@@ -1,20 +1,22 @@
 import '../../../../features/catalogue/data/models/product.dart';
-import '../../../../features/catalogue/data/models/category.dart';
 import '../../../../features/orders/data/models/order.dart';
 import '../../../../features/address/data/models/address.dart';
 
-/// All static data for the app.
+/// Static fallback / demo data. The live catalogue (products + categories)
+/// is served by [CatalogueProvider]; this datasource only retains the
+/// pieces that haven't been wired to the API yet:
+///   - [recentOrders] → the demo "Recent Orders" carousel on home
+///   - [savedAddresses] → the address picker
+///   - [dietaryFilterOptions] / [dietaryPreferenceOptions]
+///
+/// [products] is also kept (with String IDs to match the live shape) so
+/// [CartProvider.reorder] can still resolve names from the demo recent
+/// orders. Once [products/recent-purchase] feeds reorder, this list goes
+/// away too.
 abstract final class CatalogueLocalDatasource {
-  static const List<Category> categories = [
-    Category(id: 'breads', label: 'Breads', icon: '🍞', count: 12),
-    Category(id: 'pastries', label: 'Pastries', icon: '🥐', count: 18),
-    Category(id: 'cakes', label: 'Cakes', icon: '🎂', count: 9),
-    Category(id: 'cookies', label: 'Cookies', icon: '🍪', count: 15),
-  ];
-
   static const List<Product> products = [
     Product(
-      id: 1,
+      id: '1',
       name: 'Sourdough Boule',
       category: 'breads',
       price: 8.50,
@@ -31,7 +33,7 @@ abstract final class CatalogueLocalDatasource {
       ],
     ),
     Product(
-      id: 2,
+      id: '2',
       name: 'Pain au Chocolat',
       category: 'pastries',
       price: 5.25,
@@ -45,7 +47,7 @@ abstract final class CatalogueLocalDatasource {
       time: 'Fresh daily',
     ),
     Product(
-      id: 3,
+      id: '3',
       name: 'Raspberry Tart',
       category: 'pastries',
       price: 7.00,
@@ -59,7 +61,7 @@ abstract final class CatalogueLocalDatasource {
       time: 'Made to order',
     ),
     Product(
-      id: 4,
+      id: '4',
       name: 'Chocolate Layer Cake',
       category: 'cakes',
       price: 42.00,
@@ -77,7 +79,7 @@ abstract final class CatalogueLocalDatasource {
       ],
     ),
     Product(
-      id: 5,
+      id: '5',
       name: 'Ciabatta Loaf',
       category: 'breads',
       price: 6.75,
@@ -91,7 +93,7 @@ abstract final class CatalogueLocalDatasource {
       time: 'Baked daily',
     ),
     Product(
-      id: 6,
+      id: '6',
       name: 'Almond Croissant',
       category: 'pastries',
       price: 6.00,
@@ -105,7 +107,7 @@ abstract final class CatalogueLocalDatasource {
       time: 'Limited daily',
     ),
     Product(
-      id: 7,
+      id: '7',
       name: 'Butter Croissant',
       category: 'pastries',
       price: 4.50,
@@ -119,7 +121,7 @@ abstract final class CatalogueLocalDatasource {
       time: 'Fresh daily',
     ),
     Product(
-      id: 8,
+      id: '8',
       name: 'Lemon Drizzle Cake',
       category: 'cakes',
       price: 28.00,
@@ -133,7 +135,7 @@ abstract final class CatalogueLocalDatasource {
       time: '24hr notice',
     ),
     Product(
-      id: 9,
+      id: '9',
       name: 'Chocolate Chip Cookie',
       category: 'cookies',
       price: 2.50,
@@ -151,7 +153,7 @@ abstract final class CatalogueLocalDatasource {
       ],
     ),
     Product(
-      id: 10,
+      id: '10',
       name: 'Cinnamon Roll',
       category: 'pastries',
       price: 5.50,
@@ -210,21 +212,21 @@ abstract final class CatalogueLocalDatasource {
 
   static const List<Address> savedAddresses = [
     Address(
-      id: 1,
+      id: '1',
       label: 'Breaking Bread Bakery',
       address: '17th street, Lakeside, Pokhara, Nepal',
       icon: '🏠',
       type: 'Pickup',
     ),
     Address(
-      id: 2,
+      id: '2',
       label: 'Brand Builder Office',
       address: "Niva galli, Chipledhunga, Pokhara, Nepal",
       icon: '💼',
       type: 'Pick up',
     ),
     Address(
-      id: 3,
+      id: '3',
       label: 'Home',
       address: 'your home address here',
       icon: '🏡',

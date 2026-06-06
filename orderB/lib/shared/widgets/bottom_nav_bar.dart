@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme/app_decorations.dart';
+import '../../core/brandkit/app_decorations.dart';
 import '../../features/cart/presentation/providers/cart_provider.dart';
 
 /// App-level bottom navigation bar with 4 tabs.

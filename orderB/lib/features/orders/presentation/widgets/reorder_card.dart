@@ -3,10 +3,20 @@ import '../../data/models/order.dart';
 import '../../../../core/constants.dart';
 
 /// Compact order history card widget.
-class OrderCard extends StatelessWidget {
+///
+/// Renders in two visual states:
+/// - default: light card surface, dark text
+/// - featured: primary-colored dark background, light text
+///
+/// `featured` is forced by the caller (e.g. mark the first card in a row
+/// as the visual anchor) OR by mouse hover on web/desktop — whichever
+/// triggers it wins. On touch platforms hover never fires, so the look
+/// stays static.
+class OrderCard extends StatefulWidget {
   final Order order;
   final VoidCallback? onReorder;
   final VoidCallback? onTap;
+  final VoidCallback? onTrack;
   final bool featured;
 
   const OrderCard({
@@ -14,22 +24,48 @@ class OrderCard extends StatelessWidget {
     required this.order,
     this.onReorder,
     this.onTap,
+    this.onTrack,
     this.featured = false,
   });
 
   @override
+  State<OrderCard> createState() => _OrderCardState();
+}
+
+class _OrderCardState extends State<OrderCard> {
+  bool _hovered = false;
+
+  static const _terminalStatuses = [
+    'delivered', 'picked up', 'cancelled', 'completed',
+  ];
+
+  bool get _isActive =>
+      !_terminalStatuses.contains(widget.order.status.toLowerCase());
+
+  @override
   Widget build(BuildContext context) {
+    final order = widget.order;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final featured = widget.featured || _hovered;
     final fg = featured ? colors.onPrimary : null;
     final fgMuted = featured
         ? colors.onPrimary.withValues(alpha: 0.7)
         : theme.textTheme.bodySmall?.color;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-      padding: const EdgeInsets.all(18),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      // Slightly heavier top, lighter bottom — the previous symmetric
+      // padding left an awkward gap below the price row.
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 14),
       decoration: BoxDecoration(
         color: featured ? colors.primary : theme.cardColor,
         borderRadius: BorderRadius.circular(18),
@@ -118,33 +154,67 @@ class OrderCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (onReorder != null) ...[
+              if (widget.onReorder != null ||
+                  (widget.onTrack != null && _isActive)) ...[
                 const Spacer(),
-                TextButton(
-                  onPressed: onReorder,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                  ),
-                  child: Text(
-                    'Reorder',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: fg ?? colors.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      decoration: TextDecoration.underline,
-                      decorationColor: (fg ?? colors.primary)
-                          .withValues(alpha: 0.5),
+                if (widget.onTrack != null && _isActive)
+                  GestureDetector(
+                    onTap: widget.onTrack,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: featured
+                            ? colors.onPrimary.withValues(alpha: 0.15)
+                            : colors.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.near_me_rounded,
+                              size: 12,
+                              color: featured ? fg : colors.secondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Track',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: featured ? fg : colors.secondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                const SizedBox(width: 8),
+                if (widget.onReorder != null)
+                  TextButton(
+                    onPressed: widget.onReorder,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                    ),
+                    child: Text(
+                      'Reorder',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: fg ?? colors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        decoration: TextDecoration.underline,
+                        decorationColor: (fg ?? colors.primary)
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
               ],
             ],
           ),
         ],
+      ),
       ),
       ),
     );

@@ -41,17 +41,22 @@ class AuthProvider extends ChangeNotifier {
   /// Called on app start. Reads stored token; if present, validates by
   /// fetching /me. On any failure, ends in [AuthStatus.unauthenticated].
   Future<void> bootstrap() async {
-    final token = await _tokenStorage.read();
-    if (token == null || token.isEmpty) {
-      _setUnauthenticated();
-      return;
-    }
-    final result = await _repo.getMe();
-    if (result.isSuccess && result.data != null) {
-      _user = result.data;
-      _setStatus(AuthStatus.authenticated);
-    } else {
-      await _tokenStorage.clear();
+    try {
+      final token = await _tokenStorage.read();
+      if (token == null || token.isEmpty) {
+        _setUnauthenticated();
+        return;
+      }
+      final result = await _repo.getMe();
+      if (result.isSuccess && result.data != null) {
+        _user = result.data;
+        _setStatus(AuthStatus.authenticated);
+      } else {
+        await _tokenStorage.clear();
+        _setUnauthenticated();
+      }
+    } catch (e, st) {
+      debugPrint('🚨 AuthProvider.bootstrap failed: $e\n$st');
       _setUnauthenticated();
     }
   }
@@ -182,28 +187,11 @@ class AuthProvider extends ChangeNotifier {
         return true;
       });
 
-  Future<bool> reactivate({
-    required String email,
-    required String password,
-  }) =>
-      _run(() async {
-        final result = await _repo.reactivate(email: email, password: password);
-        if (result.isFailure) {
-          _errorMessage = result.failure?.message ?? 'Reactivation failed.';
-          return false;
-        }
-        // Server may or may not return a token; if it does, log in directly.
-        final token = result.data;
-        if (token != null && token.isNotEmpty) {
-          await _tokenStorage.write(token);
-          final me = await _repo.getMe();
-          if (me.isSuccess && me.data != null) {
-            _user = me.data;
-            _setStatus(AuthStatus.authenticated);
-          }
-        }
-        return true;
-      });
+  /// Reactivates a deactivated account. Server returns no token, so the
+  /// caller (LoginScreen) is expected to follow up with a fresh `login()`
+  /// using the same credentials the user just typed.
+  Future<bool> reactivate({required String emailOrPhone}) =>
+      _runSimple(() => _repo.reactivate(emailOrPhone: emailOrPhone));
 
   /// Best-effort. Always clears local token + state, even if the API call
   /// fails (server might be offline; user still wants to be logged out).
@@ -213,8 +201,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.logout();
-    } catch (_) {
-      // Intentionally swallowed — local logout proceeds regardless.
+    } catch (e) {
+      debugPrint('🚨 AuthProvider.logout (API call failed, local logout continues): $e');
     }
     await _tokenStorage.clear();
     _user = null;
@@ -223,9 +211,18 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  //
+  // Every public method in this class needs the same boilerplate:
+  //   1. set isBusy = true, clear errorMessage, notify
+  //   2. run the actual logic, catching errors
+  //   3. set isBusy = false, notify
+  //
+  // [_run] does that wrapping for any method whose body decides true/false.
+  // [_runSimple] is a thin convenience for methods that just want
+  // "ApiResult.isSuccess → true, otherwise false + capture the message".
 
-  /// For methods that return an [ApiResult<void>] and have no extra
-  /// post-success state changes — just maps success/failure to bool.
+  /// Use for methods that just call a repository method and return its
+  /// success/failure as a bool.
   Future<bool> _runSimple(Future<dynamic> Function() call) => _run(() async {
         final result = await call();
         if (result.isSuccess) return true;
@@ -233,6 +230,8 @@ class AuthProvider extends ChangeNotifier {
         return false;
       });
 
+  /// Use for methods that need custom logic between the busy-state flips
+  /// (e.g. login, which saves a token AND fetches /me on success).
   Future<bool> _run(Future<bool> Function() body) async {
     _isBusy = true;
     _errorMessage = null;

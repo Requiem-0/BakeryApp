@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
+import '../../core/brandkit/app_theme.dart';
 
 /// Full-width gradient primary CTA button.
 class PrimaryButton extends StatelessWidget {

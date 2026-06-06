@@ -1,24 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/token_storage.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_provider.dart';
+import 'core/brandkit/app_theme.dart';
+import 'core/brandkit/theme_provider.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/businesses/data/repositories/business_repository.dart';
+import 'features/businesses/presentation/providers/business_provider.dart';
+import 'features/catalogue/data/models/product.dart';
 import 'features/catalogue/data/repositories/product_repository.dart';
 import 'features/catalogue/presentation/providers/catalogue_provider.dart';
+import 'features/cart/data/repositories/cart_repository.dart';
 import 'features/cart/presentation/providers/cart_provider.dart';
 import 'features/favourites/presentation/providers/favourites_provider.dart';
 import 'features/address/presentation/providers/address_provider.dart';
+import 'features/notifications/presentation/providers/notification_provider.dart';
+import 'features/orders/data/repositories/order_repository.dart';
+import 'features/orders/presentation/providers/order_provider.dart';
 import 'core/navigation/nav_provider.dart';
-import 'features/profile/presentation/providers/user_provider.dart';
 import 'core/navigation/app_router.dart';
 import 'core/constants.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Global error handler ────────────────────────────────────────
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('🚨 GLOBAL ERROR: ${details.exception}\n${details.stack}');
+  };
+
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   final tokenStorage = TokenStorage();
@@ -30,27 +44,142 @@ void main() {
     tokenStorage: tokenStorage,
   );
   apiClient.onUnauthorized = authProvider.handleUnauthorized;
-  authProvider.bootstrap();
+  authProvider.bootstrap().catchError((e, st) {
+    debugPrint('🚨 Auth bootstrap failed: $e\n$st');
+  });
 
-  final productRepository = ProductRepository(apiClient: apiClient);
+  final router = createRouter(authProvider);
+
+  final productRepository = ProductRepository(
+    apiClient: apiClient,
+    businessId: AppConstants.bakeryBusinessId,
+  );
   final catalogueProvider =
       CatalogueProvider(repository: productRepository);
-  catalogueProvider.bootstrap();
+  catalogueProvider.bootstrap().catchError((e, st) {
+    debugPrint('🚨 Catalogue bootstrap failed: $e\n$st');
+  });
+
+  final businessRepository = BusinessRepository(apiClient: apiClient);
+  final businessProvider =
+      BusinessProvider(repository: businessRepository);
+  
+  businessProvider.addListener(() {
+    final b = businessProvider.current;
+    if (b != null) {
+      AppConstants.applyBranding(
+        appName: b.businessName,
+        currency: b.admin.currency,
+      );
+    }
+  });
+  businessProvider.bootstrap(
+    currentBusinessId: AppConstants.bakeryBusinessId,
+  ).catchError((e, st) {
+    debugPrint('🚨 Business bootstrap failed: $e\n$st');
+  });
+
+  final orderRepository = OrderRepository(apiClient: apiClient);
+  final orderProvider = OrderProvider(repository: orderRepository);
+
+  final cartRepository = CartRepository(apiClient: apiClient);
+  final cartProvider = CartProvider(
+    repository: cartRepository,
+    isAuthenticated: () => authProvider.isAuthenticated,
+    // Resolves cart-line productIds to fully-populated Products (with
+    // adminId/variantItems/addons) by looking them up in the loaded
+    // catalogue. Until the catalogue finishes its bootstrap this
+    // returns null and the cart falls back to a thin Product built
+    // from the cart-line's inline fields — still renderable.
+    productResolver: (id) {
+      for (final api in catalogueProvider.products) {
+        if (api.id == id) return Product.fromApi(api);
+      }
+      return null;
+    },
+    // Per-order service charge straight from the business config (e.g.
+    // Breaking Bread returns `orderChargePerOrder: 20`). Falls back to
+    // 0 if no business has loaded yet — never assumes a hardcoded fee.
+    serviceChargeResolver: () =>
+        (businessProvider.current?.orderChargePerOrder ?? 0).toDouble(),
+  );
+  // Re-notify the cart whenever the business changes so the displayed
+  // total in the cart summary updates with the live service charge.
+  businessProvider.addListener(() {
+    cartProvider.serviceChargeResolver = () =>
+        (businessProvider.current?.orderChargePerOrder ?? 0).toDouble();
+  });
+  cartProvider.bootstrap().catchError((e, st) {
+    debugPrint('🚨 Cart bootstrap failed: $e\n$st');
+  });
+
+  final addressProvider = AddressProvider(apiClient: apiClient);
+  final notificationProvider = NotificationProvider(apiClient: apiClient);
+  // Addresses and notifications both live behind authenticated routes
+  // (/api/location/* and /api/notification/*). Hook into auth state so
+  // both refresh on login and clear on logout. This also handles the
+  // cold-start case where the user has a stored token from a previous
+  // session — once `authProvider.bootstrap()` flips status to
+  // authenticated, the listener fires and pulls the lists down.
+  authProvider.addListener(() {
+    if (authProvider.isAuthenticated) {
+      addressProvider.refresh().catchError((e, st) {
+        debugPrint('🚨 Address refresh failed: $e\n$st');
+      });
+      notificationProvider.refresh().catchError((e, st) {
+        debugPrint('🚨 Notification refresh failed: $e\n$st');
+      });
+      orderProvider.fetchOrders().catchError((e, st) {
+        debugPrint('🚨 Order fetch failed: $e\n$st');
+      });
+      cartProvider.bootstrap().catchError((e, st) {
+        debugPrint('🚨 Cart refresh failed: $e\n$st');
+      });
+    } else {
+      addressProvider.clear();
+      notificationProvider.clear();
+      orderProvider.clear();
+      cartProvider.clear().catchError((e, st) {
+        debugPrint('🚨 Cart clear failed: $e\n$st');
+      });
+    }
+  });
 
   runApp(App(
+    router: router,
+    apiClient: apiClient,
     authProvider: authProvider,
     catalogueProvider: catalogueProvider,
+    businessProvider: businessProvider,
+    orderProvider: orderProvider,
+    cartProvider: cartProvider,
+    addressProvider: addressProvider,
+    notificationProvider: notificationProvider,
   ));
 }
 
 class App extends StatelessWidget {
+  final GoRouter router;
+  final ApiClient apiClient;
   final AuthProvider authProvider;
   final CatalogueProvider catalogueProvider;
+  final BusinessProvider businessProvider;
+  final OrderProvider orderProvider;
+  final CartProvider cartProvider;
+  final AddressProvider addressProvider;
+  final NotificationProvider notificationProvider;
 
   const App({
     super.key,
+    required this.router,
+    required this.apiClient,
     required this.authProvider,
     required this.catalogueProvider,
+    required this.businessProvider,
+    required this.orderProvider,
+    required this.cartProvider,
+    required this.addressProvider,
+    required this.notificationProvider,
   });
 
   @override
@@ -60,11 +189,15 @@ class App extends StatelessWidget {
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<CatalogueProvider>.value(
             value: catalogueProvider),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider<BusinessProvider>.value(
+            value: businessProvider),
+        ChangeNotifierProvider<OrderProvider>.value(value: orderProvider),
+        ChangeNotifierProvider<CartProvider>.value(value: cartProvider),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
-        ChangeNotifierProvider(create: (_) => AddressProvider()),
+        ChangeNotifierProvider<AddressProvider>.value(value: addressProvider),
+        ChangeNotifierProvider<NotificationProvider>.value(
+            value: notificationProvider),
         ChangeNotifierProvider(create: (_) => NavProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: Builder(
@@ -72,7 +205,6 @@ class App extends StatelessWidget {
           final themeMode = context.watch<ThemeProvider>().mode;
           final isDark = themeMode == ThemeMode.dark;
 
-          // Update status bar style based on theme
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness:

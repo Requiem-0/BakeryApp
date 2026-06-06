@@ -32,6 +32,21 @@ class CatalogueProvider extends ChangeNotifier {
   CatalogueLoadState get categoriesState => _categoriesState;
   String? get categoriesError => _categoriesError;
 
+  /// Subset of [categories] that have at least one product in the currently
+  /// loaded product set. The bakery's POS account has 23 categories on the
+  /// backend but only 9 products, so many categories (Belgian Beer, Burger,
+  /// Cold Drinks, etc. — leftover template entries) are empty. The existing
+  /// customer shop hides those; we match that behaviour.
+  ///
+  /// When products haven't loaded yet, returns the full list rather than an
+  /// empty one — avoids the category strip flashing blank on first paint.
+  List<ApiCategory> get visibleCategories {
+    if (_products.isEmpty) return _categories;
+    final activeIds =
+        _products.map((p) => p.categoryId).whereType<String>().toSet();
+    return _categories.where((c) => activeIds.contains(c.id)).toList();
+  }
+
   // ── Products slot (filtered by selectedCategoryId or searchKeyword) ──────
   List<ApiProduct> _products = const [];
   CatalogueLoadState _productsState = CatalogueLoadState.idle;
@@ -103,6 +118,7 @@ class CatalogueProvider extends ChangeNotifier {
 
     final result = await _repo.getAllProducts();
     _applyPagedResult(result, append: false);
+    notifyListeners();
   }
 
   /// Fetches the next page using the stored cursor and appends to the

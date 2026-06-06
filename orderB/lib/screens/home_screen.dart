@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
-import '../../../../features/catalogue/data/models/product.dart';
-import '../../../../features/catalogue/data/datasources/catalogue_local_datasource.dart';
-import '../../../../features/cart/presentation/providers/cart_provider.dart';
-import '../../../../features/favourites/presentation/providers/favourites_provider.dart';
-import '../../../../features/address/presentation/providers/address_provider.dart';
-import '../../../../features/address/presentation/widgets/address_selector.dart';
-import '../../../../features/catalogue/presentation/widgets/category_pill.dart';
-import '../../../../features/catalogue/presentation/widgets/product_card.dart';
-import '../../../../features/catalogue/presentation/widgets/grid_product_card.dart';
-import '../../../../features/orders/presentation/widgets/reorder_card.dart';
-import '../../../../shared/widgets/ai_tip.dart';
-import '../../../../shared/widgets/section_header.dart';
-import '../../../../core/navigation/nav_provider.dart';
+import '../features/catalogue/data/models/category.dart';
+import '../features/catalogue/data/models/product.dart';
+import '../features/catalogue/presentation/providers/catalogue_provider.dart';
+import '../features/cart/presentation/providers/cart_provider.dart';
+import '../features/favourites/presentation/providers/favourites_provider.dart';
+import '../features/address/presentation/providers/address_provider.dart';
+import '../features/address/presentation/widgets/address_selector.dart';
+import '../features/catalogue/presentation/widgets/category_pill.dart';
+import '../features/catalogue/presentation/widgets/product_card.dart';
+import '../features/catalogue/presentation/widgets/grid_product_card.dart';
+import '../features/orders/presentation/widgets/reorder_card.dart';
+import '../features/orders/data/models/placed_order.dart';
+import '../features/orders/data/models/order.dart';
+import '../features/orders/presentation/providers/order_provider.dart';
+import '../features/auth/presentation/providers/auth_provider.dart';
+import '../shared/widgets/ai_tip.dart';
+import '../shared/widgets/section_header.dart';
+import '../core/navigation/nav_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -41,6 +46,32 @@ class _HomeScreenState extends State<HomeScreen>
         vsync: this, duration: const Duration(milliseconds: 600));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _animCtrl.forward();
+
+    // Trigger an initial product fetch once the widget tree is mounted.
+    // No-op if products are already loaded (e.g. user backed in from a child).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cat = context.read<CatalogueProvider>();
+      if (cat.products.isEmpty &&
+          cat.productsState != CatalogueLoadState.loading) {
+        cat.loadAllProducts().catchError((e, st) {
+          debugPrint('🚨 HomeScreen: loadAllProducts failed: $e\n$st');
+        });
+      }
+      final auth = context.read<AuthProvider>();
+      if (auth.isAuthenticated) {
+        // "Recent Purchases" used to come from /products/recent-purchase,
+        // which is server-filtered to completed orders. We now derive the
+        // list from the user's full order history below, so that load is
+        // no longer needed.
+        final orderProv = context.read<OrderProvider>();
+        if (orderProv.orders.isEmpty && !orderProv.isLoading) {
+          orderProv.fetchOrders().catchError((e, st) {
+            debugPrint('🚨 HomeScreen: fetchOrders failed: $e\n$st');
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -62,12 +93,10 @@ class _HomeScreenState extends State<HomeScreen>
         onSelect: (id) => prov.select(id));
   }
 
-  List<Product> get _filtered {
+  List<Product> _applyFilter(List<Product> source) {
     List<Product> list = _selectedCategory == 'all'
-        ? List.of(CatalogueLocalDatasource.products)
-        : CatalogueLocalDatasource.products
-            .where((p) => p.category == _selectedCategory)
-            .toList();
+        ? List.of(source)
+        : source.where((p) => p.category == _selectedCategory).toList();
 
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -100,8 +129,30 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final favProv = context.watch<FavouritesProvider>();
     final addrProv = context.watch<AddressProvider>();
-    final filtered = _filtered;
+    final catProv = context.watch<CatalogueProvider>();
+    final authProv = context.watch<AuthProvider>();
+    final orderProv = context.watch<OrderProvider>();
+
+    final allProducts =
+        catProv.products.map(Product.fromApi).toList(growable: false);
+    final categories =
+        catProv.visibleCategories.map(Category.fromApi).toList(growable: false);
+
+    final filtered = _applyFilter(allProducts);
     final bool showRecent = _searchQuery.isEmpty && _selectedCategory == 'all';
+    final bool isLoadingInitial =
+        catProv.productsState == CatalogueLoadState.loading &&
+            catProv.products.isEmpty;
+
+    // Recent orders for authenticated users — all statuses (pending +
+    // completed), valid orders only, newest-first as returned by the
+    // backend. One card per order using the shared OrderCard widget.
+    final List<Order> recentOrders = authProv.isAuthenticated
+        ? orderProv.orders
+            .where((o) => o.isValid)
+            .take(8)
+            .toList(growable: false)
+        : const [];
 
     return FadeTransition(
       opacity: _fadeAnim,
@@ -173,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen>
                   },
                 ),
                 const SizedBox(width: 10),
-                ...CatalogueLocalDatasource.categories.map((c) {
+                ...categories.map((c) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: CategoryPill(
@@ -195,8 +246,6 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
           // ── Scrollable content ───────────────────────────────────
           Expanded(
             child: ListView(
@@ -207,55 +256,64 @@ class _HomeScreenState extends State<HomeScreen>
                 const AiTip(),
                 const SizedBox(height: 16),
 
-                // Recent orders preview
-                if (showRecent) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Recent Orders',
-                          style: Theme.of(context).textTheme.headlineSmall),
-                      GestureDetector(
-                        onTap: () => context.push('/home/recent_orders'),
-                        child: Text('View all →',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.tertiary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 150,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: CatalogueLocalDatasource.recentOrders.length.clamp(0, 3),
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (_, i) => GestureDetector(
-                        onTap: () => context.push('/home/recent_orders'),
-                        child: SizedBox(
-                          width: 200,
-                          child: OrderCard(
-                            order: CatalogueLocalDatasource.recentOrders[i],
-                            featured: i == 0,
-                            onReorder: () {
-                              context
-                                  .read<CartProvider>()
-                                  .reorder(CatalogueLocalDatasource.recentOrders[i]);
-                              context.push('/cart');
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                 // Recent orders preview
+                 if (showRecent) ...[
+                   if (authProv.isAuthenticated && recentOrders.isNotEmpty) ...[
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                       children: [
+                         Text('Recent Orders',
+                             style: Theme.of(context).textTheme.headlineSmall),
+                         GestureDetector(
+                           onTap: () => context.push('/home/recent_orders'),
+                           child: Text('View all →',
+                               style: Theme.of(context)
+                                   .textTheme
+                                   .bodySmall
+                                   ?.copyWith(
+                                       color: Theme.of(context)
+                                           .colorScheme
+                                           .tertiary,
+                                       fontWeight: FontWeight.w500,
+                                       fontSize: 13)),
+                         ),
+                       ],
+                     ),
+                     const SizedBox(height: 14),
+                     SizedBox(
+                       height: 175,
+                       child: ListView.separated(
+                         scrollDirection: Axis.horizontal,
+                         physics: const BouncingScrollPhysics(),
+                         itemCount: recentOrders.length,
+                         separatorBuilder: (_, __) =>
+                             const SizedBox(width: 14),
+                         itemBuilder: (_, i) {
+                           final order = recentOrders[i];
+                           return SizedBox(
+                             width: 260,
+                             child: OrderCard(
+                               order: order,
+                               onTap: () =>
+                                   context.push('/home/recent_orders'),
+                               onReorder: () {
+                                 debugPrint(
+                                     '🏠 RecentOrder reorder tapped: ${order.id} (${order.items.length} items)');
+                                 context.read<CartProvider>().reorder(order);
+                                 context.push('/cart');
+                               },
+                               onTrack: () => context.push(
+                                 '/checkout/success/tracking',
+                                 extra: PlacedOrder.fromOrder(order),
+                               ),
+                             ),
+                           );
+                         },
+                       ),
+                     ),
+                     const SizedBox(height: 24),
+                   ],
+                 ],
 
                 // Search result info
                 if (_searchQuery.isNotEmpty)
@@ -286,8 +344,13 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 const SizedBox(height: 14),
 
-                // Empty state
-                if (filtered.isEmpty)
+                // Loading / empty state
+                if (isLoadingInitial)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 64),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (filtered.isEmpty)
                   _EmptyState(
                     onClear: () => setState(() {
                       _searchQuery = '';
@@ -372,11 +435,15 @@ class _SearchBar extends StatelessWidget {
         prefixIcon: Icon(Icons.search_rounded,
             color: Theme.of(context).colorScheme.onSurfaceVariant, size: 20),
         suffixIcon: controller.text.isNotEmpty
-            ? IconButton(
-                onPressed: onClear,
-                icon: Icon(Icons.close_rounded,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    size: 16),
+            ? GestureDetector(
+                onTap: onClear,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(Icons.close_rounded,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 18),
+                ),
               )
             : null,
       ),
@@ -486,18 +553,17 @@ class _EmptyState extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 48),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: Lottie.asset(
-              'assets/animations/empty_search.json',
-              width: 200,
-              repeat: false,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.search_off_rounded,
-                size: 96,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          Lottie.asset(
+            'assets/animations/empty_search.json',
+            width: 200,
+            repeat: false,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.search_off_rounded,
+              size: 96,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 14),

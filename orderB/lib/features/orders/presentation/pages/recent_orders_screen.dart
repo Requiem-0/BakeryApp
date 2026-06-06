@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../catalogue/data/datasources/catalogue_local_datasource.dart';
+import '../../../catalogue/presentation/providers/catalogue_provider.dart';
+import '../../../catalogue/data/models/product.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/models/order.dart';
+import '../../data/models/placed_order.dart';
 import '../widgets/reorder_card.dart';
 import '../widgets/order_invoice_sheet.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import 'package:go_router/go_router.dart';
+import '../../presentation/providers/order_provider.dart';
 import '../../../../core/constants.dart';
 
 class RecentOrdersScreen extends StatefulWidget {
@@ -16,15 +21,10 @@ class RecentOrdersScreen extends StatefulWidget {
 }
 
 class _RecentOrdersScreenState extends State<RecentOrdersScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pageCtrl;
   late final Animation<double> _pageFade;
   late final Animation<Offset> _pageSlide;
-  late final List<AnimationController> _cardCtrls;
-
-  final _orders = CatalogueLocalDatasource.recentOrders;
-  late final double _totalSpent =
-      _orders.fold<double>(0, (sum, o) => sum + o.total);
 
   @override
   void initState() {
@@ -36,26 +36,22 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
     _pageSlide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
         .animate(CurvedAnimation(parent: _pageCtrl, curve: Curves.easeOut));
 
-    _cardCtrls = List.generate(
-      _orders.length,
-      (_) => AnimationController(
-          vsync: this, duration: const Duration(milliseconds: 400)),
-    );
-
     _pageCtrl.forward();
-    for (var i = 0; i < _cardCtrls.length; i++) {
-      Future.delayed(Duration(milliseconds: 150 + i * 100), () {
-        if (mounted) _cardCtrls[i].forward();
-      });
-    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      if (auth.isAuthenticated) {
+        context.read<OrderProvider>().fetchOrders().catchError((e, st) {
+          debugPrint('🚨 RecentOrdersScreen: fetchOrders failed: $e\n$st');
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _pageCtrl.dispose();
-    for (final c in _cardCtrls) {
-      c.dispose();
-    }
     super.dispose();
   }
 
@@ -63,6 +59,20 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+
+    final authProv = context.watch<AuthProvider>();
+    final orderProv = context.watch<OrderProvider>();
+
+    // Authed users get their real orders straight from OrderProvider.
+    // Guests have nothing here — the My Orders tile in profile already
+    // gates guests through /login, but render an empty state defensively
+    // in case they reach this route by some other path (deep link, etc).
+    final List<Order> orders =
+        authProv.isAuthenticated ? orderProv.orders : const [];
+    final bool isLoadingOrders =
+        authProv.isAuthenticated && orderProv.isLoading && orders.isEmpty;
+
+    final double totalSpent = orders.fold<double>(0, (sum, o) => sum + o.total);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -73,7 +83,9 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
         ),
         title: const Text('Recent Orders'),
       ),
-      body: _orders.isEmpty
+      body: isLoadingOrders
+          ? const Center(child: CircularProgressIndicator())
+          : orders.isEmpty
           ? _EmptyOrders()
           : FadeTransition(
               opacity: _pageFade,
@@ -82,7 +94,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
                   children: [
-                    // ── This Month summary ──────────────────────
+                    // ── Summary Header ──────────────────────
                     Container(
                       padding: const EdgeInsets.all(24),
                       margin: const EdgeInsets.only(bottom: 24),
@@ -112,9 +124,8 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${_orders.length}',
-                                    style: theme.textTheme.displayLarge
-                                        ?.copyWith(
+                                    '${orders.length}',
+                                    style: theme.textTheme.displayLarge?.copyWith(
                                       color: colors.onPrimary,
                                       fontSize: 32,
                                     ),
@@ -122,8 +133,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                                   Text(
                                     'orders placed',
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colors.onPrimary
-                                          .withValues(alpha: 0.5),
+                                      color: colors.onPrimary.withValues(alpha: 0.5),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -133,9 +143,8 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    AppConstants.formatPrice(_totalSpent),
-                                    style: theme.textTheme.displayLarge
-                                        ?.copyWith(
+                                    AppConstants.formatPrice(totalSpent),
+                                    style: theme.textTheme.displayLarge?.copyWith(
                                       color: colors.onPrimary,
                                       fontSize: 24,
                                     ),
@@ -143,8 +152,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                                   Text(
                                     'total spent',
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colors.onPrimary
-                                          .withValues(alpha: 0.5),
+                                      color: colors.onPrimary.withValues(alpha: 0.5),
                                       fontSize: 13,
                                     ),
                                   ),
@@ -156,29 +164,46 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                       ),
                     ),
 
-                    // ── Order cards ─────────────────────────────
-                    ...List.generate(_orders.length, (i) {
-                      final order = _orders[i];
-                      final ctrl = _cardCtrls[i];
-                      return FadeTransition(
-                        opacity: CurvedAnimation(
-                            parent: ctrl, curve: Curves.easeOut),
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.08),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                              parent: ctrl, curve: Curves.easeOut)),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: OrderCard(
-                              order: order,
-                              onTap: () => OrderInvoiceSheet.show(context, order),
-                              onReorder: () {
-                                context.read<CartProvider>().reorder(order);
-                                context.push('/cart');
-                              },
+                    // ── Dynamic Order cards with staggered load animations ──
+                    ...List.generate(orders.length, (i) {
+                      final order = orders[i];
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: Duration(milliseconds: 300 + (i * 100).clamp(0, 500)),
+                        curve: Curves.easeOut,
+                        builder: (context, val, child) {
+                          return Opacity(
+                            opacity: val,
+                            child: Transform.translate(
+                              offset: Offset(0, 15 * (1 - val)),
+                              child: child,
                             ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: OrderCard(
+                            order: order,
+                            onTap: () => OrderInvoiceSheet.show(context, order),
+                            onTrack: () => context.push(
+                              '/checkout/success/tracking',
+                              extra: PlacedOrder.fromOrder(order),
+                            ),
+                            onReorder: () async {
+                              debugPrint('📋 RecentOrdersScreen reorder tapped: order ${order.id} with ${order.items.length} item(s)');
+                              final cat = context.read<CatalogueProvider>();
+                              if (cat.products.isEmpty && cat.productsState != CatalogueLoadState.loading) {
+                                debugPrint('   → Products not loaded yet, loading first...');
+                                await cat.loadAllProducts();
+                                debugPrint('   → Products loaded: ${cat.products.length} product(s)');
+                              }
+                              if (!context.mounted) return;
+                              final prods = cat.products.map(Product.fromApi).toList(growable: false);
+                              debugPrint('   → Calling reorder() with ${prods.length} available product(s)');
+                              context.read<CartProvider>().reorder(order, availableProducts: prods);
+                              debugPrint('   → Navigating to /cart');
+                              context.push('/cart');
+                            },
                           ),
                         ),
                       );

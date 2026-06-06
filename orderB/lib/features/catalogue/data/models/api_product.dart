@@ -1,3 +1,5 @@
+import '../../../../core/utils/json_helpers.dart';
+
 /// Product as returned by /api/products/* endpoints.
 ///
 /// Named `ApiProduct` to avoid colliding with the legacy wishful-shape
@@ -98,9 +100,7 @@ class ApiProduct {
         isVeg: (json['isVeg'] as bool?) ?? false,
         isAvailable: (json['isAvailable'] as bool?) ?? false,
         usesOfferPrice: (json['usesOfferPrice'] as bool?) ?? false,
-        addons: ((json['addons'] as List?) ?? const [])
-            .map(ApiProductAddon.fromAny)
-            .toList(),
+        addons: parseAnyList(json['addons'], ApiProductAddon.fromAny),
         categoryId: json['categories'] as String?,
         adminId: json['adminId'] as String?,
         addedBy: json['added_by'] as String?,
@@ -110,18 +110,14 @@ class ApiProduct {
         isTaxable: (json['isTaxable'] as bool?) ?? false,
         showInOrdering: (json['showInOrdering'] as bool?) ?? true,
         usesStocks: json['usesStocks'] as bool?,
-        tags: ((json['tags'] as List?) ?? const [])
-            .whereType<String>()
-            .toList(),
+        tags: parseStringList(json['tags']),
         image: json['image'] as String?,
         description: json['description'] as String?,
         inStock: json['inStock'] as num?,
         lowStock: json['lowStock'] as num?,
         compositeItems: json['compositeItems'],
         usesCompositeItems: json['usesCompositeItems'] as bool?,
-        discounts: ((json['discounts'] as List?) ?? const [])
-            .whereType<String>()
-            .toList(),
+        discounts: parseStringList(json['discounts']),
         discountType: json['discountType'] as String?,
         businessId: json['businessId'] as String?,
         businessName: json['businessName'] as String?,
@@ -251,14 +247,8 @@ class ApiProductVariants {
         id: json['_id'] as String?,
         productId: json['productId'] as String?,
         adminId: json['adminId'] as String?,
-        options: ((json['options'] as List?) ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(ApiVariantOption.fromJson)
-            .toList(),
-        items: ((json['variantItems'] as List?) ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(ApiVariantItem.fromJson)
-            .toList(),
+        options: parseObjectList(json['options'], ApiVariantOption.fromJson),
+        items: parseObjectList(json['variantItems'], ApiVariantItem.fromJson),
         createdAt: json['createdAt'] as String?,
         updatedAt: json['updatedAt'] as String?,
       );
@@ -289,9 +279,7 @@ class ApiVariantOption {
       ApiVariantOption(
         id: json['_id'] as String?,
         title: (json['title'] ?? '') as String,
-        values: ((json['values'] as List?) ?? const [])
-            .whereType<String>()
-            .toList(),
+        values: parseStringList(json['values']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -326,9 +314,7 @@ class ApiVariantItem {
 
   factory ApiVariantItem.fromJson(Map<String, dynamic> json) => ApiVariantItem(
         id: json['_id'] as String?,
-        optionValues: ((json['optionValues'] as List?) ?? const [])
-            .whereType<String>()
-            .toList(),
+        optionValues: parseStringList(json['optionValues']),
         price: (json['price'] as num?) ?? 0,
         costPrice: json['costPrice'] as num?,
         isAvailable: (json['isAvailable'] as bool?) ?? false,

@@ -118,18 +118,12 @@ class AuthRepository {
     }
   }
 
-  Future<ApiResult<String>> reactivate({
-    required String email,
-    required String password,
-  }) async {
+  /// Server responds `{ success, message, customer }` — no token. Caller
+  /// is expected to follow up with a fresh `login()` for credentials.
+  Future<ApiResult<void>> reactivate({required String emailOrPhone}) async {
     try {
-      final res = await _api.post('/auth/reactivate', body: {
-        'email': email,
-        'password': password,
-      });
-      // Reactivate may or may not return a sessionToken — handle both.
-      final token = _extractToken(res.data);
-      return ApiResult.success(token ?? '');
+      await _api.post('/auth/reactivate', body: {'emailOrPhone': emailOrPhone});
+      return ApiResult.success(null);
     } catch (e) {
       return ApiResult.failure(ApiClient.parseError(e));
     }

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
 
-import '../../../catalogue/data/datasources/catalogue_local_datasource.dart';
+import '../../../catalogue/data/models/product.dart';
+import '../../../catalogue/presentation/providers/catalogue_provider.dart';
 import '../providers/favourites_provider.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../catalogue/presentation/widgets/grid_product_card.dart';
@@ -16,17 +17,26 @@ class FavouritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favProv = context.watch<FavouritesProvider>();
+    final catProv = context.watch<CatalogueProvider>();
     final cart = context.read<CartProvider>();
-    final favs =
-        CatalogueLocalDatasource.products.where((p) => favProv.isFavourite(p.id)).toList();
+    final favs = catProv.products
+        .map(Product.fromApi)
+        .where((p) => favProv.isFavourite(p.id))
+        .toList();
 
     return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          leading: const Padding(
-            padding: EdgeInsets.only(left: 8.0),
-            child: AppBackButton(),
-          ),
+          // /favourites is the root of the Favourites shell branch — tapping
+          // the tab lands here with nothing on the stack to pop. Only show
+          // the back button when this screen was actually pushed (e.g. from
+          // the Profile menu's Favourites tile).
+          leading: Navigator.of(context).canPop()
+              ? const Padding(
+                  padding: EdgeInsets.only(left: 8.0),
+                  child: AppBackButton(),
+                )
+              : null,
         ),
         body: SafeArea(
           child: Column(
