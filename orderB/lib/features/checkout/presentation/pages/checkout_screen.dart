@@ -307,13 +307,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   }
                                 }
 
-                                final String? selectedVariant = i.selectedVariants.isNotEmpty
-                                    ? i.selectedVariants.values.first
-                                    : null;
+                                // Ticket POST schema gotchas (learned by
+                                // hitting the validator one field at a
+                                // time):
+                                //   - `preTaxPrice` → "not allowed"
+                                //   - `variantItem`  → "not allowed"
+                                //     (the cart endpoint accepts it,
+                                //     ticket endpoint doesn't)
+                                //   - `variant`      → accepted but
+                                //     appears to be silently ignored
+                                //     server-side; for variant-only
+                                //     products (Brownie has base
+                                //     price=0, real prices in
+                                //     variantItems[]) the server can't
+                                //     reconcile our unitPrice and zeros
+                                //     it out anyway. Until the backend
+                                //     adds variant-by-id support, we
+                                //     send the label as a best-effort
+                                //     audit trail and the order parser
+                                //     enriches Rs 0 lines from the
+                                //     catalogue cache on read.
                                 return {
                                   'product': finalProductId,
                                   'quantity': i.quantity,
-                                  'variant': selectedVariant,
+                                  if (i.variantItemLabel != null)
+                                    'variant': i.variantItemLabel,
+                                  'unitPrice': i.unitPrice,
                                   'addons': const [],
                                   'note': '',
                                   'discounts': const [],

@@ -80,7 +80,23 @@ void main() {
   });
 
   final orderRepository = OrderRepository(apiClient: apiClient);
-  final orderProvider = OrderProvider(repository: orderRepository);
+  final orderProvider = OrderProvider(
+    repository: orderRepository,
+    // Resolves a productId to the catalogue's current displayed price
+    // (variant-aware via Product._derivePrice). OrderProvider uses this
+    // to patch Rs 0 lines coming back from /ticket/my-orders so cards
+    // show the right total even when the backend stored 0. Returns 0
+    // if the catalogue hasn't bootstrapped yet or the productId is
+    // unknown — enrichment just no-ops in that case.
+    priceResolver: (productId) {
+      for (final api in catalogueProvider.products) {
+        if (api.id == productId) {
+          return Product.fromApi(api).price;
+        }
+      }
+      return 0;
+    },
+  );
 
   final cartRepository = CartRepository(apiClient: apiClient);
   final cartProvider = CartProvider(

@@ -335,14 +335,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    final business = context.read<BusinessProvider>();
-    business.addListener(_maybeNavigate);
-    // Maximum time we ever pin to the splash. Tuned so a slow
-    // /businesses/{id} response (cold backend, weak network) still has
-    // a chance to land, but a truly broken call doesn't trap the user.
-    _fallbackTimer = Timer(const Duration(seconds: 2), _maybeNavigate);
-    // Auth might already be done by the time this widget mounts — check
-    // once on the next frame in case the business is also already ready.
+    // Listen to BOTH providers — either one resolving (or the timer
+    // firing) is enough to re-check the navigate condition. Listening
+    // only to business meant a slow auth bootstrap could leave the
+    // splash stuck after the 2s timer had already given up.
+    context.read<BusinessProvider>().addListener(_maybeNavigate);
+    context.read<AuthProvider>().addListener(_maybeNavigate);
+    // Maximum time we ever pin to the splash. Bumped to 4s after 2s
+    // was tight enough that the business call usually didn't land in
+    // time and the splash dismissed without the bakery logo. Still
+    // short enough that a fully broken backend doesn't strand the user.
+    _fallbackTimer = Timer(const Duration(seconds: 4), _maybeNavigate);
+    // Auth or business might already be done by the time this widget
+    // mounts — check once on the next frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeNavigate());
   }
 
@@ -350,6 +355,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void dispose() {
     _fallbackTimer?.cancel();
     context.read<BusinessProvider>().removeListener(_maybeNavigate);
+    context.read<AuthProvider>().removeListener(_maybeNavigate);
     super.dispose();
   }
 

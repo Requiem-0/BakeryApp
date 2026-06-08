@@ -69,6 +69,15 @@ class OrderItem {
       productId: prodId,
     );
   }
+
+  OrderItem copyWith({double? price}) => OrderItem(
+        name: name,
+        image: image,
+        qty: qty,
+        price: price ?? this.price,
+        selectedVariants: selectedVariants,
+        productId: productId,
+      );
 }
 
 /// A completed / past order record fetched from the API.
@@ -95,6 +104,15 @@ class Order {
     required this.status,
     this.createdAt,
   });
+
+  Order copyWith({List<OrderItem>? items, double? total}) => Order(
+        id: id,
+        date: date,
+        createdAt: createdAt,
+        items: items ?? this.items,
+        total: total ?? this.total,
+        status: status,
+      );
 
   /// Returns false for ghost / malformed orders where the backend returned a
   /// ticket whose product references were not populated (all items fall back
@@ -155,10 +173,14 @@ class Order {
       return 0;
     }
 
+    // grandTotal is the final post-charges amount on the rebuzzpos
+    // ticket schema — prefer it over `total`, which has been observed
+    // to carry just one line item's price (no idea why). totalAmount
+    // is a defensive alias older endpoints sometimes use.
     double total = pickNum(const [
+      'grandTotal',
       'totalAmount',
       'total',
-      'grandTotal',
       'subTotal',
       'subtotal',
       'orderTotal',
@@ -168,13 +190,28 @@ class Order {
       'totalPrice',
     ]);
 
-    if (total == 0 && items.isNotEmpty) {
-      total = items.fold<double>(0, (sum, it) => sum + it.price * it.qty);
+    // If the server's totals are zero (old tickets, weird state), sum
+    // the line items we parsed. Also override when the server total
+    // looks suspiciously small compared to the items sum — the parser
+    // would otherwise show 120 for a 495 order if `total` came back
+    // wrong.
+    if (items.isNotEmpty) {
+      final itemsSum =
+          items.fold<double>(0, (sum, it) => sum + it.price * it.qty);
+      if (total == 0 || (itemsSum > 0 && itemsSum > total)) {
+        total = itemsSum;
+      }
     }
 
     if (total == 0) {
-      debugPrint('🟡 Order.fromJson: no price field matched. '
-          'Raw keys: ${json.keys.toList()}');
+      debugPrint(
+          '🟡 Order ${json['_id']}: total=0 from API and items also sum to 0 — '
+          'likely an old ticket created before the unitPrice POST fix.');
+    } else {
+      debugPrint(
+          '🟢 Order ${json['_id']}: total=$total '
+          '(apiTotal=${json['total']}, apiGrandTotal=${json['grandTotal']}, '
+          'items=${items.map((i) => "${i.name} x${i.qty} @${i.price}").join(", ")})');
     }
 
     final status = (json['status'] ?? json['orderStatus'] ?? 'pending')

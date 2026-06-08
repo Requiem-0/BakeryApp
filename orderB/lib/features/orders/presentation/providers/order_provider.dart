@@ -7,7 +7,22 @@ enum OrderLoadState { idle, loading, ready, error }
 class OrderProvider extends ChangeNotifier {
   final OrderRepository _repo;
 
-  OrderProvider({required OrderRepository repository}) : _repo = repository;
+  /// Looks up the catalogue's current price for a productId. Used to
+  /// patch Rs 0 lines coming back from the ticket endpoint (the server
+  /// can't reconcile unitPrice for variant-only products because we
+  /// can't tell it which variant — the ticket POST schema rejects
+  /// `variantItem`). The cards then display the right grand total even
+  /// though the database row is wrong.
+  ///
+  /// Null means no resolver wired (tests, early bootstrap); orders
+  /// pass through unchanged.
+  final double Function(String productId)? _priceResolver;
+
+  OrderProvider({
+    required OrderRepository repository,
+    double Function(String productId)? priceResolver,
+  })  : _repo = repository,
+        _priceResolver = priceResolver;
 
   List<Order> _orders = const [];
   OrderLoadState _state = OrderLoadState.idle;
@@ -46,10 +61,18 @@ class OrderProvider extends ChangeNotifier {
         uniqueOrders[order.id] = order;
       }
 
+      // Patch up Rs 0 lines from the catalogue (the ticket endpoint
+      // can't store the right unitPrice for variant-only products and
+      // also returns historical zero-priced tickets) before the isValid
+      // filter — once a ghost ticket has real prices imputed, it stops
+      // looking like a ghost and the customer sees their history again.
+      final List<Order> enriched =
+          uniqueOrders.values.map(_enrichOrder).toList();
+
       // Drop ghost tickets whose product references were not populated
       // (all items fell back to the generic "Item" name with zero total).
-      _orders = uniqueOrders.values.where((o) => o.isValid).toList();
-      
+      _orders = enriched.where((o) => o.isValid).toList();
+
       // Sort: place newest orders at the top (null dates fall back to the end)
       _orders.sort((a, b) {
         if (a.createdAt != null && b.createdAt != null) {
@@ -67,6 +90,38 @@ class OrderProvider extends ChangeNotifier {
     }
     
     notifyListeners();
+  }
+
+  /// Walks an order's items; for any line whose unitPrice is 0 (the
+  /// backend either couldn't reconcile a variant or is returning an
+  /// historical zero-priced ticket), looks the productId up in the
+  /// catalogue and substitutes the resolved price. Recomputes the
+  /// grand total from the enriched items.
+  ///
+  /// Returns the order unchanged when there's no resolver, no item
+  /// needs patching, or the catalogue doesn't know the productId.
+  Order _enrichOrder(Order order) {
+    final resolver = _priceResolver;
+    if (resolver == null) return order;
+    var changed = false;
+    final patched = <OrderItem>[];
+    for (final item in order.items) {
+      if (item.price > 0 || item.productId == null) {
+        patched.add(item);
+        continue;
+      }
+      final resolved = resolver(item.productId!);
+      if (resolved <= 0) {
+        patched.add(item);
+        continue;
+      }
+      patched.add(item.copyWith(price: resolved));
+      changed = true;
+    }
+    if (!changed) return order;
+    final newTotal =
+        patched.fold<double>(0, (sum, it) => sum + it.price * it.qty);
+    return order.copyWith(items: patched, total: newTotal);
   }
 
   /// Drops all cached orders + error state. Called on logout so the next
