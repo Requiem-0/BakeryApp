@@ -91,13 +91,7 @@ class OrderRepository {
         'items': items,
         'ticketName': ticketName,
         'deliveryLocation': deliveryLocation,
-        'deliveryTime': deliveryTime ??
-            {
-              'preset': 'asap',
-              'start':
-                  '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-              'date': now.toIso8601String().split('T').first,
-            },
+        'deliveryTime': deliveryTime ?? _defaultDeliveryTime(now),
         'paidStatus': paidStatus,
         'paymentMethod': paymentMethod,
       };
@@ -113,6 +107,28 @@ class OrderRepository {
     } catch (e) {
       return ApiResult.failure(ApiClient.parseError(e));
     }
+  }
+
+  /// Picks the ASAP slot from the current local time. Backend only
+  /// accepts a fixed preset enum (`morning | afternoon | evening |
+  /// night`) — no `asap` value — so we map the hour to whichever
+  /// bucket the customer is in right now.
+  Map<String, dynamic> _defaultDeliveryTime(DateTime now) {
+    final h = now.hour;
+    final preset = h >= 5 && h < 12
+        ? 'morning'
+        : h >= 12 && h < 17
+            ? 'afternoon'
+            : h >= 17 && h < 21
+                ? 'evening'
+                : 'night';
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    return {
+      'preset': preset,
+      'start': '$hh:$mm',
+      'date': now.toIso8601String().split('T').first,
+    };
   }
 
   /// POST /api/ticket/table-request

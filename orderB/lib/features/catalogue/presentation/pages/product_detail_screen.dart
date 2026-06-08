@@ -1,9 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
-import '../widgets/product_image_box.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -149,50 +148,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: Theme.of(context)
-                          .extension<AppThemeExtension>()
-                          ?.heroGradient,
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ProductImageBox(
-                          imageUrl: widget.product.imageUrl,
-                          emojiFallback: widget.product.image,
-                          emojiFontSize: 110,
-                          width: 220,
-                          height: 220,
-                        ),
-                        if (widget.product.badge != null)
-                          Positioned(
-                            bottom: 50,
-                            left: 20,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surface
-                                    .withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text('✦ ${widget.product.badge}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontWeight: FontWeight.w600)),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  background: _HeroImage(product: widget.product),
                 ),
               ),
 
@@ -417,6 +373,60 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 }
 
 // ── Private Helper Widgets ───────────────────────────────────────
+
+/// Full-bleed hero. Image stretches edge-to-edge with `BoxFit.cover`,
+/// emoji renders large + centered on a neutral surface when no URL is
+/// available, and the badge overlays the bottom-left corner.
+class _HeroImage extends StatelessWidget {
+  final Product product;
+
+  const _HeroImage({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUrl = product.imageUrl != null && product.imageUrl!.isNotEmpty;
+
+    final fallback = Container(
+      color: theme.colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Text(product.image, style: const TextStyle(fontSize: 110)),
+    );
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hasUrl)
+          CachedNetworkImage(
+            imageUrl: product.imageUrl!,
+            fit: BoxFit.cover,
+            fadeInDuration: const Duration(milliseconds: 120),
+            placeholder: (_, __) => fallback,
+            errorWidget: (_, __, ___) => fallback,
+          )
+        else
+          fallback,
+        if (product.badge != null)
+          Positioned(
+            bottom: 16,
+            left: 20,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('✦ ${product.badge}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ),
+      ],
+    );
+  }
+}
 
 class _SectionHeader extends StatelessWidget {
   final String title;

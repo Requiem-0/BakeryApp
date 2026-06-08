@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants.dart';
 
 class OrderItem {
@@ -140,11 +141,41 @@ class Order {
       }
     }
 
-    final total = ((json['totalAmount'] ??
-                json['total'] ??
-                json['grandTotal'] ??
-                0) as num)
-        .toDouble();
+    // The /ticket endpoints aren't fully consistent on the total field
+    // across rebuzzpos environments — different keys carry the grand
+    // total in different responses. Walk the most common ones first;
+    // if all of them are missing or zero, fall back to summing the
+    // items we just parsed so cards never show "Rs 0" when there's
+    // clearly a real order behind them.
+    double pickNum(List<dynamic> keys) {
+      for (final k in keys) {
+        final v = json[k];
+        if (v is num && v > 0) return v.toDouble();
+      }
+      return 0;
+    }
+
+    double total = pickNum(const [
+      'totalAmount',
+      'total',
+      'grandTotal',
+      'subTotal',
+      'subtotal',
+      'orderTotal',
+      'cost',
+      'amount',
+      'totalCost',
+      'totalPrice',
+    ]);
+
+    if (total == 0 && items.isNotEmpty) {
+      total = items.fold<double>(0, (sum, it) => sum + it.price * it.qty);
+    }
+
+    if (total == 0) {
+      debugPrint('🟡 Order.fromJson: no price field matched. '
+          'Raw keys: ${json.keys.toList()}');
+    }
 
     final status = (json['status'] ?? json['orderStatus'] ?? 'pending')
         .toString()

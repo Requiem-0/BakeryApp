@@ -8,7 +8,10 @@ plugins {
 android {
     namespace = "com.example.bakery"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pinned to a locally-installed NDK so Gradle doesn't try to fetch
+    // `flutter.ndkVersion` (28.2.13676358) every cold build. orderB is
+    // pure Flutter — no JNI — so any NDK on the path works.
+    ndkVersion = "29.0.13846066"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

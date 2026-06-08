@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -57,10 +59,11 @@ GoRouter createRouter(AuthProvider authProvider) {
         return location == '/splash' ? null : '/splash';
       }
 
-      // Once bootstrap completes, splash always sends to /home. Guests
-      // browse freely; auth-gated actions (Place Order, My Orders, ...)
-      // push /login from inside their own screens with proper pop-back.
-      if (location == '/splash') return '/home';
+      // Auth done — the SplashScreen itself drives the next push so it
+      // can hold the screen a beat longer until the BusinessProvider
+      // resolves (and the real bakery logo is loaded). The router used
+      // to force /splash → /home here, which dismissed splash before
+      // the business call returned and forced the emoji fallback.
 
       // Intentionally NO redirect when an authed user lands on a marketing
       // auth screen (/login, /register, ...). The old auto-redirect to
@@ -312,11 +315,56 @@ class _RouteErrorScreen extends StatelessWidget {
 
 /// Centered splash screen shown during auth bootstrap check.
 ///
-/// Uses the [BusinessProvider]'s loaded business for logo + name when
-/// available; falls back to a generic emoji+name pair during the brief
-/// window before the business endpoint resolves (or if it fails).
-class SplashScreen extends StatelessWidget {
+/// Holds itself on-screen until the BusinessProvider resolves so the
+/// real bakery logo gets a chance to load before dismissal — the router
+/// no longer auto-redirects /splash → /home. A 2s timeout is the
+/// backstop: if the `/businesses/{id}` call hangs or errors, we still
+/// move on rather than stranding the user. The 🥐 emoji + app-name pair
+/// remain as the in-flight fallback so the screen never looks broken.
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  Timer? _fallbackTimer;
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final business = context.read<BusinessProvider>();
+    business.addListener(_maybeNavigate);
+    // Maximum time we ever pin to the splash. Tuned so a slow
+    // /businesses/{id} response (cold backend, weak network) still has
+    // a chance to land, but a truly broken call doesn't trap the user.
+    _fallbackTimer = Timer(const Duration(seconds: 2), _maybeNavigate);
+    // Auth might already be done by the time this widget mounts — check
+    // once on the next frame in case the business is also already ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeNavigate());
+  }
+
+  @override
+  void dispose() {
+    _fallbackTimer?.cancel();
+    context.read<BusinessProvider>().removeListener(_maybeNavigate);
+    super.dispose();
+  }
+
+  void _maybeNavigate() {
+    if (_navigated || !mounted) return;
+    final auth = context.read<AuthProvider>();
+    if (auth.status == AuthStatus.initial) return;
+    final bizState = context.read<BusinessProvider>().currentState;
+    final isFallbackElapsed = _fallbackTimer?.isActive == false;
+    final bizDone = bizState == BusinessLoadState.ready ||
+        bizState == BusinessLoadState.error;
+    if (!bizDone && !isFallbackElapsed) return;
+    _navigated = true;
+    context.go('/home');
+  }
 
   @override
   Widget build(BuildContext context) {
