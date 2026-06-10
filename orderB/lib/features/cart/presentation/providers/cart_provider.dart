@@ -224,12 +224,42 @@ class CartProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Index-based wrapper for the existing UI. Prefer [updateById] in
-  /// new code — index is brittle when the cart is being synced from the
-  /// server (line order can change).
+  /// Updates the quantity of the line at [index] directly. Required
+  /// when the cart contains two lines that share a product id but
+  /// carry different variants/addons — going through [updateById]
+  /// would always hit the first match by product id, hijacking the
+  /// wrong line.
+  ///
+  /// Server sync still goes through `PUT /cart/` which keys by
+  /// product id, so the server may merge variant-distinct lines into
+  /// a single quantity. The local state stays correct; checkout
+  /// re-sends the right per-line variants and addons so the ticket
+  /// is accurate.
   Future<bool> updateQuantity(int index, int qty) async {
     if (index < 0 || index >= _items.length) return false;
-    return updateById(_items[index].product.id, qty);
+
+    if (qty <= 0) {
+      return removeAt(index);
+    }
+
+    final snapshot = _snapshot();
+    _items[index].quantity = qty;
+    notifyListeners();
+
+    if (!_isAuthenticated()) return true;
+
+    final productId = _items[index].product.id;
+    final result =
+        await _repo.updateItem(productId: productId, quantity: qty);
+    if (result.isFailure) {
+      _restore(snapshot);
+      _errorMessage = result.failure?.message ?? 'Could not update cart';
+      notifyListeners();
+      return false;
+    }
+    _replaceItemsFrom(result.data!);
+    notifyListeners();
+    return true;
   }
 
   /// Removes the line at [index]. Uses `DELETE /api/cart/{lineId}` when
@@ -305,10 +335,50 @@ class CartProvider extends ChangeNotifier {
       }
 
       if (match != null) {
+        // Re-pick the variant the customer originally chose. The
+        // ticket endpoint stores `unitPrice` (the variant's price) on
+        // the line, so matching by price is the most reliable signal
+        // — the order itself doesn't round-trip the variant id or
+        // label in any field we can read. When multiple variants
+        // share the same price (e.g. Brownie's 4 flavors all at Rs
+        // 375), we accept the first hit; the customer can re-pick
+        // before checkout if it matters.
+        VariantItem? variantPick;
+        if (oi.price > 0) {
+          for (final v in match.variantItems) {
+            if (v.price == oi.price) {
+              variantPick = v;
+              break;
+            }
+          }
+        }
+
+        // Re-pick addons. The backend stores fresh _ids for embedded
+        // subdocuments, so the order's addon id doesn't match the
+        // catalogue's — same gotcha we hit in OrderProvider
+        // enrichment. Fall back to a normalized name match to bridge
+        // the gap.
+        final addonsMap = <String, int>{};
+        for (final orderAddon in oi.addons) {
+          if (orderAddon.name.isEmpty) continue;
+          final target = orderAddon.name.trim().toLowerCase();
+          for (final pa in match.addons) {
+            if (pa.name.trim().toLowerCase() == target) {
+              addonsMap[pa.id] = orderAddon.quantity;
+              break;
+            }
+          }
+        }
+
         // Fire-and-forget — addProduct returns a Future but reorder is
         // sync from the caller's perspective. Errors are surfaced via
         // errorMessage and notifyListeners.
-        addProduct(match, quantity: oi.qty);
+        addProduct(
+          match,
+          quantity: oi.qty,
+          variant: variantPick,
+          addons: addonsMap,
+        );
       } else {
         final label = (oi.name == 'Item' || oi.name.trim().isEmpty)
             ? (oi.productId != null && oi.productId!.isNotEmpty

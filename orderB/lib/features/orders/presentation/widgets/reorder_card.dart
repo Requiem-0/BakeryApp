@@ -109,11 +109,18 @@ class _OrderCardState extends State<OrderCard> {
                       fontSize: 13,
                     ),
                   ),
-                  if (item.selectedVariants.isNotEmpty)
+                  if (item.selectedVariants.isNotEmpty ||
+                      item.addons.isNotEmpty)
                     Text(
-                      item.selectedVariants.entries
-                          .map((e) => '${e.key}: ${e.value}')
-                          .join(' · '),
+                      [
+                        ...item.selectedVariants.entries
+                            .map((e) => '${e.key}: ${e.value}'),
+                        ...item.addons
+                            .where((a) => a.name.isNotEmpty)
+                            .map((a) => a.quantity > 1
+                                ? '+${a.name} ×${a.quantity}'
+                                : '+${a.name}'),
+                      ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: featured
                             ? colors.onPrimary.withValues(alpha: 0.5)

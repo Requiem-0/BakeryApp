@@ -244,7 +244,22 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           // ── Scrollable content ───────────────────────────────────
           Expanded(
-            child: ListView(
+            child: RefreshIndicator(
+              // Pull-to-refresh hits three things customers care about:
+              // the catalogue (price/availability changes from the POS),
+              // the category list (new categories show up), and the
+              // signed-in user's order history (status changes since
+              // they last opened the app). Business doc is omitted on
+              // purpose — it rarely changes and reloading it would also
+              // re-trigger the splash logo flow unnecessarily.
+              onRefresh: () async {
+                await Future.wait([
+                  catProv.loadCategories(),
+                  catProv.loadAllProducts(),
+                  if (authProv.isAuthenticated) orderProv.fetchOrders(),
+                ]);
+              },
+              child: ListView(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
               children: [
@@ -295,7 +310,21 @@ class _HomeScreenState extends State<HomeScreen>
                                onReorder: () {
                                  debugPrint(
                                      '🏠 RecentOrder reorder tapped: ${order.id} (${order.items.length} items)');
-                                 context.read<CartProvider>().reorder(order);
+                                 // Pass the live catalogue so reorder
+                                 // can look up the real product +
+                                 // re-apply the customer's variant
+                                 // and addon picks. Without this it
+                                 // falls back to a synthetic stub and
+                                 // strips both.
+                                 final prods = context
+                                     .read<CatalogueProvider>()
+                                     .products
+                                     .map(Product.fromApi)
+                                     .toList();
+                                 context.read<CartProvider>().reorder(
+                                       order,
+                                       availableProducts: prods,
+                                     );
                                  context.push('/cart');
                                },
                              ),
@@ -392,6 +421,7 @@ class _HomeScreenState extends State<HomeScreen>
                     },
                   ),
               ],
+            ),
             ),
           ),
         ],

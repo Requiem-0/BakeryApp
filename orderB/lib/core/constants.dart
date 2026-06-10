@@ -24,7 +24,7 @@ abstract final class AppConstants {
   ///   • [apiBaseUrl]         (api.beta.order... → api.order...)
   ///   • [imageHostUrl]       (api.beta.rebuzzpos... → appapi.rebuzzpos...)
   ///   • [bakeryBusinessId]   ([devBusinessId] → [prodBusinessId])
-  static const bool useProd = true;
+  static const bool useProd = false;
 
   /// "sakjfhaskj" on beta — the dev catalogue with the richest variant +
   /// addon coverage: single-axis variants (Americano: Single/Double Shot),

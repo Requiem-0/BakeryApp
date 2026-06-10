@@ -1,6 +1,30 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/constants.dart';
 
+/// One add-on attached to an order line, as returned by /my-orders.
+/// Backends are inconsistent about how much detail they hydrate here;
+/// fields default to empty/0 when missing.
+class OrderItemAddon {
+  final String id;
+  final String name;
+  final double price;
+  final int quantity;
+
+  const OrderItemAddon({
+    required this.id,
+    this.name = '',
+    this.price = 0,
+    this.quantity = 1,
+  });
+
+  OrderItemAddon copyWith({String? name, double? price}) => OrderItemAddon(
+        id: id,
+        name: name ?? this.name,
+        price: price ?? this.price,
+        quantity: quantity,
+      );
+}
+
 class OrderItem {
   final String name;
 
@@ -11,6 +35,10 @@ class OrderItem {
   final Map<String, String> selectedVariants;
   final String? productId;
 
+  /// Add-ons attached to this line (e.g. Egg, Cheese on a Simmi).
+  /// Empty list for items that have none.
+  final List<OrderItemAddon> addons;
+
   const OrderItem({
     required this.name,
     required this.image,
@@ -18,7 +46,18 @@ class OrderItem {
     this.price = 0,
     this.selectedVariants = const {},
     this.productId,
+    this.addons = const [],
   });
+
+  /// Per-unit total including addons. `price` alone is just the variant
+  /// price; this getter is what the customer actually paid per unit.
+  double get unitTotal {
+    final addonTotal = addons.fold<double>(
+      0,
+      (sum, a) => sum + a.price * a.quantity,
+    );
+    return price + addonTotal;
+  }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     // Items can arrive as { product: {...}, quantity, price, selectedVariants }
@@ -60,6 +99,31 @@ class OrderItem {
           .map((k, v) => MapEntry(k.toString(), v.toString()));
     }
 
+    // Addons can come back as full objects (when the backend joins the
+    // Addon collection) or as bare ObjectId strings (when it doesn't).
+    // Parse defensively — name/price stay empty when the backend
+    // doesn't hydrate them; OrderProvider enriches the missing pieces
+    // from the catalogue on read.
+    final List<OrderItemAddon> addons = [];
+    final rawAddons = json['addons'];
+    if (rawAddons is List) {
+      for (final raw in rawAddons) {
+        if (raw is Map) {
+          final id = (raw['_id'] ?? raw['id'] ?? raw['addon'] ?? '')
+              .toString();
+          if (id.isEmpty) continue;
+          addons.add(OrderItemAddon(
+            id: id,
+            name: raw['name']?.toString() ?? '',
+            price: (raw['price'] as num?)?.toDouble() ?? 0,
+            quantity: (raw['quantity'] as num?)?.toInt() ?? 1,
+          ));
+        } else if (raw is String && raw.isNotEmpty) {
+          addons.add(OrderItemAddon(id: raw));
+        }
+      }
+    }
+
     return OrderItem(
       name: name,
       image: image,
@@ -67,16 +131,19 @@ class OrderItem {
       price: price,
       selectedVariants: variants,
       productId: prodId,
+      addons: addons,
     );
   }
 
-  OrderItem copyWith({double? price}) => OrderItem(
+  OrderItem copyWith({double? price, List<OrderItemAddon>? addons}) =>
+      OrderItem(
         name: name,
         image: image,
         qty: qty,
         price: price ?? this.price,
         selectedVariants: selectedVariants,
         productId: productId,
+        addons: addons ?? this.addons,
       );
 }
 

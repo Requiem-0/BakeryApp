@@ -57,8 +57,31 @@ class FavouritesScreen extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: favs.isEmpty
-                    ? _EmptyFavourites()
+                child: RefreshIndicator(
+                  // The fav list itself is local (SharedPreferences), but
+                  // the product details rendered in each card come from
+                  // CatalogueProvider — refresh catalogue + categories
+                  // so price/availability changes on saved items show up.
+                  onRefresh: () async {
+                    await Future.wait([
+                      catProv.loadCategories(),
+                      catProv.loadAllProducts(),
+                    ]);
+                  },
+                  child: favs.isEmpty
+                    ? LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                          physics:
+                              const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: _EmptyFavourites(),
+                          ),
+                        ),
+                      )
                     : GridView.builder(
                         padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
                         gridDelegate:
@@ -81,6 +104,7 @@ class FavouritesScreen extends StatelessWidget {
                           );
                         },
                       ),
+                ),
               ),
             ],
           ),

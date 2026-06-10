@@ -74,9 +74,19 @@ class SavedAddressesScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: addresses.isEmpty
-                  ? _EmptyAddresses(
-                      onAdd: () => context.push('/profile/addresses/add'),
+              child: RefreshIndicator(
+                onRefresh: () =>
+                    context.read<AddressProvider>().refresh(),
+                child: addresses.isEmpty
+                  ? ListView(
+                      padding: EdgeInsets.zero,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        _EmptyAddresses(
+                          onAdd: () =>
+                              context.push('/profile/addresses/add'),
+                        ),
+                      ],
                     )
                   : ListView(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -160,6 +170,7 @@ class SavedAddressesScreen extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant)),
                   ),
                 ],
+              ),
               ),
             ),
           ],

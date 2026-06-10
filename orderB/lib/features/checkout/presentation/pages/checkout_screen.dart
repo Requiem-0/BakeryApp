@@ -327,13 +327,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 //     audit trail and the order parser
                                 //     enriches Rs 0 lines from the
                                 //     catalogue cache on read.
+                                // Ticket POST addon shape: object with
+                                // the ObjectId under `_id` (NOT under
+                                // `addon` — that gave Mongoose a
+                                // "Cast to ObjectId failed at path _id"
+                                // error). Backend uses Joi for input
+                                // validation and Mongoose for the DB
+                                // layer; Joi expects each entry to be
+                                // an object, Mongoose maps the object
+                                // into an Addon doc keyed off `_id`.
                                 return {
                                   'product': finalProductId,
                                   'quantity': i.quantity,
-                                  if (i.variantItemLabel != null)
-                                    'variant': i.variantItemLabel,
+                                  // Try the variant's `_id` under the
+                                  // `variant` key now. We learned:
+                                  //   • `variantItem` → rejected
+                                  //   • `variant` as label → silently
+                                  //     ignored before, now hits
+                                  //     "Variant unavailable" once
+                                  //     addons force a real lookup.
+                                  // Best remaining guess: the field
+                                  // wants the ObjectId, not the label.
+                                  if (i.variantItemId != null)
+                                    'variant': i.variantItemId,
                                   'unitPrice': i.unitPrice,
-                                  'addons': const [],
+                                  'addons': i.addons
+                                      .map((a) => {
+                                            '_id': a.addonId,
+                                            'quantity': a.quantity,
+                                          })
+                                      .toList(),
                                   'note': '',
                                   'discounts': const [],
                                 };
@@ -373,15 +396,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 final order = PlacedOrder(
                                   id: displayId,
                                   eta: eta,
-                                  items: cart.items
-                                      .map((i) => PlacedOrderItem(
-                                            name: i.product.name,
-                                            image: i.product.imageUrl ?? i.product.image,
-                                            quantity: i.quantity,
-                                            price: i.product.price,
-                                            selectedVariants: i.selectedVariants,
-                                          ))
-                                      .toList(),
+                                  items: cart.items.map((i) {
+                                    // Per-unit price the customer
+                                    // actually paid: the chosen
+                                    // variant's price plus per-unit
+                                    // addon totals. Falling back to
+                                    // i.product.price here would
+                                    // show the cheapest-variant
+                                    // teaser (e.g. Simmi Rs 20)
+                                    // instead of what they were
+                                    // charged (e.g. Medium + Egg +
+                                    // Cheese = Rs 200).
+                                    final addonPerUnit = i.addons.fold<double>(
+                                      0,
+                                      (s, a) => s + a.unitPrice * a.quantity,
+                                    );
+                                    return PlacedOrderItem(
+                                      name: i.product.name,
+                                      image: i.product.imageUrl ?? i.product.image,
+                                      quantity: i.quantity,
+                                      price: i.unitPrice + addonPerUnit,
+                                      selectedVariants: i.selectedVariants,
+                                    );
+                                  }).toList(),
                                   total: cart.total,
                                   addressLabel: addr.label,
                                   addressFull: addr.address,

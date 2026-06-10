@@ -23,6 +23,16 @@ class ProductCard extends StatelessWidget {
   /// authoritative.
   final double? priceOverride;
 
+  /// Optional replacement for the bottom-right [AddCounter]. The
+  /// default counter aggregates quantity across every cart line that
+  /// shares this product id and increments by re-calling
+  /// `addProduct(product)` (which auto-picks the first variant) —
+  /// fine on browse surfaces, broken on the cart screen where two
+  /// lines can share a product id but carry different
+  /// variant+addon combos. Cart-line widgets pass their own counter
+  /// here so +/− target the specific [CartItem] index.
+  final Widget? trailingCounter;
+
   const ProductCard({
     super.key,
     required this.product,
@@ -31,6 +41,7 @@ class ProductCard extends StatelessWidget {
     required this.isFavourite,
     required this.onToggleFavourite,
     this.priceOverride,
+    this.trailingCounter,
   });
 
   @override
@@ -126,15 +137,19 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
-            // ── AddCounter pinned to the bottom-right corner ──────────────
+            // ── Counter pinned to the bottom-right corner ─────────────────
+            // Defaults to AddCounter (product-id aware, fine for browse).
+            // Cart-line widgets pass their own via [trailingCounter] so
+            // +/− operate on the specific cart line.
             Positioned(
               right: 14,
               bottom: 14,
-              child: AddCounter(
-                qty: qty,
-                productId: product.id,
-                onAdd: onQuickAdd,
-              ),
+              child: trailingCounter ??
+                  AddCounter(
+                    qty: qty,
+                    productId: product.id,
+                    onAdd: onQuickAdd,
+                  ),
             ),
           ],
         ),

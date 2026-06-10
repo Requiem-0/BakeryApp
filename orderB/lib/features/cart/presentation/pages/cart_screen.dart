@@ -27,6 +27,43 @@ class CartScreen extends StatelessWidget {
         onSelect: (id) => prov.select(id));
   }
 
+  Future<void> _confirmClearCart(
+      BuildContext context, CartProvider cart) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear cart?'),
+        content: const Text(
+          'This removes everything in your cart. You can add items '
+          "again from the menu.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    // Fire-and-forget. Awaiting `cart.clear()` after the dialog popped
+    // kept the caller's BuildContext alive while the cart rebuilt to
+    // empty — on Chrome that left the screen unresponsive until the
+    // server-DELETE call returned. Local clear is synchronous and
+    // already notified listeners; the server sync runs in the
+    // background.
+    cart.clear().catchError((e, st) {
+      debugPrint('🚨 cart.clear failed: $e\n$st');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
@@ -67,7 +104,7 @@ class CartScreen extends StatelessWidget {
           if (cart.items.isNotEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.only(right: 24),
+                padding: const EdgeInsets.only(right: 16),
                 child: Text(
                   '${cart.totalCount} item${cart.totalCount != 1 ? 's' : ''}',
                   style: Theme.of(context).textTheme.bodySmall,
@@ -81,10 +118,59 @@ class CartScreen extends StatelessWidget {
           Expanded(
             child: cart.items.isEmpty
                 ? const EmptyCartView()
-                : ListView(
+                : RefreshIndicator(
+                    // Re-syncs the server-side cart for authed users.
+                    // Useful when an item the customer added on the
+                    // web was modified (price/availability) between
+                    // sessions. No-op for guests — `bootstrap`
+                    // short-circuits without a token.
+                    onRefresh: () => cart.bootstrap(),
+                    child: ListView(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                     children: [
-                      ...cart.items.map((item) {
+                      // "Clear all" mirrors the OrderCard's "Reorder"
+                      // text-link style: underlined, no icon, no
+                      // background, error color. Right-aligned so it
+                      // doesn't visually compete with the first
+                      // product card directly under it.
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: 4, right: 4, bottom: 20),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () =>
+                                _confirmClearCart(context, cart),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                            ),
+                            child: Text(
+                              'Clear all',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: Theme.of(context)
+                                        .colorScheme
+                                        .error
+                                        .withValues(alpha: 0.5),
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      ...cart.items.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: Column(
@@ -92,11 +178,31 @@ class CartScreen extends StatelessWidget {
                             children: [
                               ProductCard(
                                 product: item.product,
-                                priceOverride: item.unitPrice,
+                                // Per-unit cost INCLUDING addons, so the
+                                // line price matches what the customer
+                                // actually pays. unitPrice alone shows
+                                // only the variant (Rs 40 Large), which
+                                // makes the +Egg subtitle look free.
+                                priceOverride: item.quantity > 0
+                                    ? item.lineTotal / item.quantity
+                                    : item.unitPrice,
                                 onTap: () => context.push('/home/product',
                                     extra: item.product),
                                 onQuickAdd: () =>
                                     cart.addProduct(item.product),
+                                // Override the default product-id-based
+                                // counter with one that targets THIS
+                                // cart line by index — so +/− works
+                                // for variant-distinct lines (two
+                                // Simmis with different variant+addon
+                                // combos no longer share a counter).
+                                trailingCounter: _CartLineCounter(
+                                  quantity: item.quantity,
+                                  onIncrement: () => cart.updateQuantity(
+                                      idx, item.quantity + 1),
+                                  onDecrement: () => cart.updateQuantity(
+                                      idx, item.quantity - 1),
+                                ),
                                 isFavourite:
                                     favProv.isFavourite(item.product.id),
                                 onToggleFavourite: () =>
@@ -223,6 +329,7 @@ class CartScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                     ],
                   ),
+            ),
           ),
 
           // Checkout button pinned to bottom
@@ -296,6 +403,77 @@ class _CartLineDetail extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
           fontSize: 12,
         ),
+      ),
+    );
+  }
+}
+
+/// Cart-line +/− counter. Identical visual to [AddCounter] but the
+/// callbacks are wired to the specific [CartItem] index instead of
+/// the product id, so two cart lines that share a product (different
+/// variants/addons) each manipulate themselves cleanly.
+class _CartLineCounter extends StatelessWidget {
+  final int quantity;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+
+  const _CartLineCounter({
+    required this.quantity,
+    required this.onIncrement,
+    required this.onDecrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      height: 32,
+      width: 88,
+      decoration: BoxDecoration(
+        color: colors.primary,
+        borderRadius: BorderRadius.circular(AppDecorations.radiusSM),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onDecrement,
+              behavior: HitTestBehavior.opaque,
+              child: Icon(Icons.remove_rounded,
+                  color: colors.onPrimary, size: 14),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, anim) =>
+                ScaleTransition(scale: anim, child: child),
+            child: Text(
+              '$quantity',
+              key: ValueKey(quantity),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: onIncrement,
+              behavior: HitTestBehavior.opaque,
+              child: Icon(Icons.add_rounded,
+                  color: colors.onPrimary, size: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

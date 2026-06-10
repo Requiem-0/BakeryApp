@@ -32,8 +32,20 @@ class ProfileScreen extends StatelessWidget {
     final orderProv = context.watch<OrderProvider>();
 
     return SafeArea(
-      child: ListView(
+      child: RefreshIndicator(
+        // Refreshes both /me (name, email, phone change from another
+        // device) and the order list (the "My Orders — N recent" tile
+        // updates count). No-op for guests because both providers
+        // short-circuit without a token.
+        onRefresh: () async {
+          await Future.wait([
+            if (isAuth) auth.bootstrap(),
+            if (isAuth) orderProv.fetchOrders(),
+          ]);
+        },
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
           Text('My Profile', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 20),
@@ -208,6 +220,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
         ],
+      ),
       ),
     );
   }

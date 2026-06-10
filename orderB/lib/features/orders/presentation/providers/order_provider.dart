@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../catalogue/data/models/product.dart';
 import '../../data/models/order.dart';
 import '../../data/repositories/order_repository.dart';
 
@@ -7,22 +8,23 @@ enum OrderLoadState { idle, loading, ready, error }
 class OrderProvider extends ChangeNotifier {
   final OrderRepository _repo;
 
-  /// Looks up the catalogue's current price for a productId. Used to
-  /// patch Rs 0 lines coming back from the ticket endpoint (the server
-  /// can't reconcile unitPrice for variant-only products because we
-  /// can't tell it which variant — the ticket POST schema rejects
-  /// `variantItem`). The cards then display the right grand total even
-  /// though the database row is wrong.
-  ///
-  /// Null means no resolver wired (tests, early bootstrap); orders
-  /// pass through unchanged.
-  final double Function(String productId)? _priceResolver;
+  /// Looks up a Product by its catalogue id. Used to enrich orders
+  /// from /my-orders:
+  ///   • If a line came back with `price == 0` we substitute the
+  ///     product's display price (`_derivePrice` — cheapest available
+  ///     variant for variant-only items).
+  ///   • If an addon entry came back with missing name/price (backend
+  ///     didn't hydrate the Addon doc, just stored the id), we look
+  ///     it up in `product.addons` and fill in both.
+  /// Null = no resolver wired (tests, pre-catalogue bootstrap); orders
+  /// pass through untouched.
+  final Product? Function(String productId)? _productResolver;
 
   OrderProvider({
     required OrderRepository repository,
-    double Function(String productId)? priceResolver,
+    Product? Function(String productId)? productResolver,
   })  : _repo = repository,
-        _priceResolver = priceResolver;
+        _productResolver = productResolver;
 
   List<Order> _orders = const [];
   OrderLoadState _state = OrderLoadState.idle;
@@ -92,35 +94,115 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Walks an order's items; for any line whose unitPrice is 0 (the
-  /// backend either couldn't reconcile a variant or is returning an
-  /// historical zero-priced ticket), looks the productId up in the
-  /// catalogue and substitutes the resolved price. Recomputes the
-  /// grand total from the enriched items.
+  /// Walks an order's items; for each line, patches what the backend
+  /// didn't hydrate properly:
+  ///   • If `price == 0`, substitutes the product's display price
+  ///     from the catalogue (cheapest variant for variant-only items).
+  ///   • If any addon entry has missing name/price (backend stored
+  ///     only the id), fills both from the product's `addons[]` list.
+  /// Recomputes the order's grand total as
+  /// `Σ (price + Σaddon.price × addon.qty) × line.qty` so the card
+  /// reflects what the customer actually paid.
   ///
-  /// Returns the order unchanged when there's no resolver, no item
-  /// needs patching, or the catalogue doesn't know the productId.
+  /// No-op when there's no resolver wired or the catalogue doesn't
+  /// know the productId — the order passes through untouched.
   Order _enrichOrder(Order order) {
-    final resolver = _priceResolver;
-    if (resolver == null) return order;
-    var changed = false;
+    final resolver = _productResolver;
+    if (resolver == null) {
+      debugPrint('🟡 _enrichOrder: no productResolver wired; skipping');
+      return order;
+    }
+    // Debug: log every item's addons so we can see whether the backend
+    // hydrated name/price or just sent ids, and whether the catalogue
+    // resolver finds the product. Temporary — yank once the addon
+    // enrichment is verified working end-to-end.
+    for (final item in order.items) {
+      if (item.addons.isEmpty) continue;
+      final product = item.productId != null
+          ? resolver(item.productId!)
+          : null;
+      debugPrint(
+          '🔍 enrich ${order.id} item="${item.name}" price=${item.price} '
+          'qty=${item.qty} productFound=${product != null} '
+          'productAddons=${product?.addons.map((a) => "${a.id}:${a.name}=${a.price}").join(",") ?? "n/a"}');
+      for (final a in item.addons) {
+        debugPrint('   addon: id=${a.id} name="${a.name}" '
+            'price=${a.price} qty=${a.quantity}');
+      }
+    }
+    var anyChange = false;
     final patched = <OrderItem>[];
     for (final item in order.items) {
-      if (item.price > 0 || item.productId == null) {
-        patched.add(item);
-        continue;
+      OrderItem next = item;
+      final product = item.productId != null
+          ? resolver(item.productId!)
+          : null;
+
+      // (1) Patch zero-price lines from the catalogue.
+      if (next.price <= 0 && product != null && product.price > 0) {
+        next = next.copyWith(price: product.price);
       }
-      final resolved = resolver(item.productId!);
-      if (resolved <= 0) {
-        patched.add(item);
-        continue;
+
+      // (2) Hydrate missing addon name/price from product.addons.
+      //     Triggers only when the response left a field empty —
+      //     a backend that fully joins the Addon docs would no-op.
+      if (next.addons.isNotEmpty && product != null) {
+        final addonsPatched = <OrderItemAddon>[];
+        var addonChanged = false;
+        for (final a in next.addons) {
+          if (a.name.isNotEmpty && a.price > 0) {
+            addonsPatched.add(a);
+            continue;
+          }
+          ProductAddon? match;
+          // Try id first — cleanest match when the backend preserved it.
+          for (final pa in product.addons) {
+            if (pa.id == a.id) {
+              match = pa;
+              break;
+            }
+          }
+          // Fallback: match by name. Mongoose regenerates a fresh _id
+          // for embedded sub-documents on save, so the addon _id we
+          // POSTed doesn't make it through to /my-orders. The backend
+          // does copy the name in, so a normalized name match catches
+          // the gap. Trim + lowercase guards against whitespace and
+          // case drift between the catalogue and the stored ticket.
+          if (match == null && a.name.isNotEmpty) {
+            final target = a.name.trim().toLowerCase();
+            for (final pa in product.addons) {
+              if (pa.name.trim().toLowerCase() == target) {
+                match = pa;
+                break;
+              }
+            }
+          }
+          if (match == null) {
+            addonsPatched.add(a);
+            continue;
+          }
+          addonsPatched.add(a.copyWith(
+            name: a.name.isEmpty ? match.name : a.name,
+            price: a.price > 0 ? a.price : match.price,
+          ));
+          addonChanged = true;
+        }
+        if (addonChanged) {
+          next = next.copyWith(addons: addonsPatched);
+        }
       }
-      patched.add(item.copyWith(price: resolved));
-      changed = true;
+
+      if (!identical(next, item)) anyChange = true;
+      patched.add(next);
     }
-    if (!changed) return order;
-    final newTotal =
-        patched.fold<double>(0, (sum, it) => sum + it.price * it.qty);
+
+    // Recompute grand total from the (possibly enriched) lines —
+    // factors in addons via OrderItem.unitTotal.
+    final newTotal = patched.fold<double>(
+      0,
+      (sum, it) => sum + it.unitTotal * it.qty,
+    );
+    if (!anyChange && newTotal == order.total) return order;
     return order.copyWith(items: patched, total: newTotal);
   }
 

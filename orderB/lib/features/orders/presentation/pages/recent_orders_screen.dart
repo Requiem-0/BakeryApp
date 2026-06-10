@@ -84,9 +84,16 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
       ),
       body: isLoadingOrders
           ? const Center(child: CircularProgressIndicator())
-          : orders.isEmpty
-          ? _EmptyOrders()
-          : FadeTransition(
+          : RefreshIndicator(
+              onRefresh: () =>
+                  context.read<OrderProvider>().fetchOrders(),
+              child: orders.isEmpty
+                  ? ListView(
+                      padding: EdgeInsets.zero,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [_EmptyOrders()],
+                    )
+                  : FadeTransition(
               opacity: _pageFade,
               child: SlideTransition(
                 position: _pageSlide,
@@ -206,6 +213,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                   ],
                 ),
               ),
+            ),
             ),
     );
   }
