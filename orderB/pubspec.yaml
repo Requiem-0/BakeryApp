@@ -1,7 +1,11 @@
 name: bakery
-description: A new Flutter project.
+description: Customer ordering app for Breaking Bread bakery.
 publish_to: 'none'
 
+# version: <semver>+<build number>
+# Bump the build number on EVERY upload to Play Store — duplicates
+# are rejected. The semver is what shows in the store listing; the
+# build number is what the Play Console keys releases off.
 version: 1.0.0+1
 
 environment:
@@ -22,6 +26,8 @@ dependencies:
   cached_network_image: ^3.4.1
   package_info_plus: ^9.0.1
   path_provider: ^2.1.5
+  firebase_core: ^4.10.0
+  firebase_crashlytics: ^5.2.3
 
 dev_dependencies:
   flutter_test:

@@ -24,7 +24,16 @@ abstract final class AppConstants {
   ///   • [apiBaseUrl]         (api.beta.order... → api.order...)
   ///   • [imageHostUrl]       (api.beta.rebuzzpos... → appapi.rebuzzpos...)
   ///   • [bakeryBusinessId]   ([devBusinessId] → [prodBusinessId])
-  static const bool useProd = true;
+  ///
+  /// Driven by `--dart-define=USE_PROD=true` at build time. Default is
+  /// `false` — devs + QA running plain `flutter run` automatically hit
+  /// the beta backend with test data. Production releases pass the
+  /// flag explicitly:
+  ///   flutter build appbundle --release --dart-define=USE_PROD=true
+  /// That removes the "I forgot to flip the flag" failure mode where a
+  /// dev build accidentally writes to (or reads from) prod.
+  static const bool useProd =
+      bool.fromEnvironment('USE_PROD', defaultValue: false);
 
   /// "sakjfhaskj" on beta — the dev catalogue with the richest variant +
   /// addon coverage: single-axis variants (Americano: Single/Double Shot),

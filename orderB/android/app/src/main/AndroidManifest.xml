@@ -1,6 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Geolocator: needed for the Pick Location screen's "Locate me" FAB
-         and for centering the map on the user's current position. -->
+    <!--
+      Permission justifications — used when filling out the Play
+      Console's Data Safety form. Keep this comment block in sync
+      with what's actually requested below; the Play Store reviewer
+      will reject the submission if the form claims a permission is
+      unused but the manifest still requests it.
+
+      INTERNET
+        Required by every network call to the rebuzzpos backend
+        (auth, catalogue, cart, ticket creation, business logo,
+        notifications). No data collection beyond what the user
+        actively submits.
+
+      ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION
+        Used ONLY by the "Use my current location" button on the
+        New Address screen, to autofill the customer's street
+        address. Lat/lng is sent to OpenStreetMap Nominatim for
+        reverse-geocoding (returns a human-readable address); the
+        coordinates are then attached to the saved address record
+        on our backend so the bakery knows where to deliver.
+        Not collected in the background, not used for tracking,
+        not shared with third parties beyond Nominatim.
+
+      No other permissions are requested.
+    -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET"/>

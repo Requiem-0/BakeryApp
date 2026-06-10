@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,9 +8,40 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase build plugins. Applied only when `google-services.json`
+// exists in this directory — without that file, the plugins fail
+// the build. Dev machines that don't have the secret config can
+// still build the app without Firebase / Crashlytics (the Dart-side
+// init is wrapped in a try/catch to match).
+//
+// To enable on this machine:
+//   1. Drop the `google-services.json` provided by the backend team
+//      into `android/app/google-services.json` (gitignored).
+//   2. Run `flutter clean && flutter run` — the plugins kick in
+//      automatically.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
+// Release signing config — read from `android/key.properties` if it
+// exists. That file is gitignored and lives outside the repo (or on
+// the build machine only). When it's absent (dev machines that don't
+// have the upload keystore yet) the build falls back to debug keys so
+// `flutter run --release` still works for smoke testing.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasUploadKeystore = keystorePropertiesFile.exists()
+if (hasUploadKeystore) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.breakingbread.bakery"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to 35 (Android 15) — Play Store rejects new uploads
+    // targeting below 34 as of August 2025. Hardcoded so a future
+    // Flutter SDK bump can't silently drift us off-spec.
+    compileSdk = 35
     // Pinned to a locally-installed NDK so Gradle doesn't try to fetch
     // `flutter.ndkVersion` (28.2.13676358) every cold build. orderB is
     // pure Flutter — no JNI — so any NDK on the path works.
@@ -24,19 +58,35 @@ android {
 
     defaultConfig {
         applicationId = "com.breakingbread.bakery"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Android 6 (Marshmallow). Covers ~99% of active devices in
+        // Nepal and gives us runtime permission APIs by default.
+        minSdk = 23
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasUploadKeystore) {
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+                storeFile = (keystoreProperties["storeFile"] as String?)?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String?
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use the upload keystore when present, fall back to debug
+            // keys otherwise so contributors who don't have the
+            // production key can still build the release variant for
+            // local profiling.
+            signingConfig = if (hasUploadKeystore)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 }

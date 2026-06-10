@@ -12,3 +12,9 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase client config — contains the project's public API key.
+# Not truly secret (Firebase uses domain restrictions, not key
+# secrecy) but conventional practice is to keep it out of public
+# repos so it can't be reused on impersonator apps.
+**/google-services.json

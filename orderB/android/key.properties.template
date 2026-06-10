@@ -1,0 +1,19 @@
+# Copy this file to `key.properties` (gitignored) and fill in the
+# values from when you generated the upload keystore.
+#
+# Generate the keystore once and back it up to a password manager —
+# Google Play uses the FIRST upload-signature you submit as the
+# identity for all future updates. Losing the keystore means you
+# cannot ship updates without registering a new app from scratch.
+#
+# Generation command (PowerShell):
+#   keytool -genkey -v -keystore C:\path\to\store\upload-keystore.jks `
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Store the keystore OUTSIDE this repo (e.g. C:\Users\<you>\keystores\)
+# and reference its absolute path in `storeFile` below.
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=C:\\Users\\YOU\\keystores\\bakery-upload.jks

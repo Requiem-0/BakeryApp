@@ -1,3 +1,6 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -28,11 +31,36 @@ import 'core/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Global error handler ────────────────────────────────────────
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    debugPrint('🚨 GLOBAL ERROR: ${details.exception}\n${details.stack}');
-  };
+  // ── Firebase + Crashlytics ──────────────────────────────────────
+  // Wrapped in try/catch so dev machines that don't have a
+  // google-services.json yet (the file is gitignored and lives only
+  // on the build machine + CI secret store) can still run the app.
+  // Without Firebase, exceptions just go to debugPrint as before.
+  var crashlyticsReady = false;
+  try {
+    await Firebase.initializeApp();
+    if (!kIsWeb) {
+      // Crashlytics has no web SDK — only collect on native.
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+      crashlyticsReady = true;
+    }
+  } catch (e) {
+    debugPrint('⚠️ Firebase init skipped (no config?): $e');
+  }
+
+  // Fallback Flutter error handler when Crashlytics isn't wired —
+  // still surfaces the exception in the log so devs can see it.
+  if (!crashlyticsReady) {
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('🚨 GLOBAL ERROR: ${details.exception}\n${details.stack}');
+    };
+  }
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
