@@ -25,7 +25,6 @@ class Product {
   final String category;
 
   final double price;
-  final double rating;
   final int reviews;
 
   /// Emoji fallback. Always present so screens that haven't migrated to
@@ -61,7 +60,6 @@ class Product {
     required this.name,
     required this.category,
     required this.price,
-    required this.rating,
     required this.reviews,
     required this.image,
     this.imageUrl,
@@ -94,8 +92,8 @@ class Product {
   }
 
   /// Adapts an [ApiProduct] (live API shape) into this UI-friendly form.
-  /// Fields the API doesn't supply (rating, reviews, badge, time, emoji)
-  /// fall back to safe defaults so existing UI keeps rendering.
+  /// Fields the API doesn't supply (reviews, badge, time, emoji) fall
+  /// back to safe defaults so existing UI keeps rendering.
   factory Product.fromApi(ApiProduct api) {
     final hasDiscount = api.discounts.isNotEmpty;
     final isPopular = api.orderedCount >= 25;
@@ -112,7 +110,6 @@ class Product {
       // "from ₹X" instead of "₹0". Falls through to api.price for plain
       // products and for the edge case where every variant is also 0.
       price: _derivePrice(api),
-      rating: 0,
       reviews: api.orderedCount,
       // Single-codepoint fallback (fork+knife). Avoid emoji that need a
       // variation selector — some platforms ship without those glyphs and

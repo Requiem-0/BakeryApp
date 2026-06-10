@@ -16,7 +16,6 @@ class OrderCard extends StatefulWidget {
   final Order order;
   final VoidCallback? onReorder;
   final VoidCallback? onTap;
-  final VoidCallback? onTrack;
   final bool featured;
 
   const OrderCard({
@@ -24,7 +23,6 @@ class OrderCard extends StatefulWidget {
     required this.order,
     this.onReorder,
     this.onTap,
-    this.onTrack,
     this.featured = false,
   });
 
@@ -34,13 +32,6 @@ class OrderCard extends StatefulWidget {
 
 class _OrderCardState extends State<OrderCard> {
   bool _hovered = false;
-
-  static const _terminalStatuses = [
-    'delivered', 'picked up', 'cancelled', 'completed',
-  ];
-
-  bool get _isActive =>
-      !_terminalStatuses.contains(widget.order.status.toLowerCase());
 
   @override
   Widget build(BuildContext context) {
@@ -154,42 +145,9 @@ class _OrderCardState extends State<OrderCard> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (widget.onReorder != null ||
-                  (widget.onTrack != null && _isActive)) ...[
+              if (widget.onReorder != null) ...[
                 const Spacer(),
-                if (widget.onTrack != null && _isActive)
-                  GestureDetector(
-                    onTap: widget.onTrack,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: featured
-                            ? colors.onPrimary.withValues(alpha: 0.15)
-                            : colors.secondary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.near_me_rounded,
-                              size: 12,
-                              color: featured ? fg : colors.secondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Track',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: featured ? fg : colors.secondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
-                if (widget.onReorder != null)
-                  TextButton(
+                TextButton(
                     onPressed: widget.onReorder,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,

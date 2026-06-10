@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'core/network/api_client.dart';
+import 'core/storage/logo_cache.dart';
 import 'core/storage/token_storage.dart';
 import 'core/brandkit/app_theme.dart';
 import 'core/brandkit/theme_provider.dart';
@@ -24,7 +25,7 @@ import 'core/navigation/nav_provider.dart';
 import 'core/navigation/app_router.dart';
 import 'core/constants.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── Global error handler ────────────────────────────────────────
@@ -63,7 +64,13 @@ void main() {
   final businessRepository = BusinessRepository(apiClient: apiClient);
   final businessProvider =
       BusinessProvider(repository: businessRepository);
-  
+
+  // Pre-loads the logo cached on disk from the previous run so the
+  // splash can render it immediately on cold boot. The network refresh
+  // fires later (via the BusinessProvider listener below).
+  final logoCache = LogoCacheService();
+  await logoCache.loadCached();
+
   businessProvider.addListener(() {
     final b = businessProvider.current;
     if (b != null) {
@@ -71,6 +78,13 @@ void main() {
         appName: b.businessName,
         currency: b.admin.currency,
       );
+      // Re-download the logo whenever the business resolves with a new
+      // URL. ensureCached is a no-op when the on-disk cache already
+      // matches, so this is cheap on hot launches.
+      final logoUrl = AppConstants.resolveImageUrl(b.logo);
+      if (logoUrl != null) {
+        logoCache.ensureCached(logoUrl);
+      }
     }
   });
   businessProvider.bootstrap(
@@ -171,6 +185,7 @@ void main() {
     cartProvider: cartProvider,
     addressProvider: addressProvider,
     notificationProvider: notificationProvider,
+    logoCache: logoCache,
   ));
 }
 
@@ -184,6 +199,7 @@ class App extends StatelessWidget {
   final CartProvider cartProvider;
   final AddressProvider addressProvider;
   final NotificationProvider notificationProvider;
+  final LogoCacheService logoCache;
 
   const App({
     super.key,
@@ -196,6 +212,7 @@ class App extends StatelessWidget {
     required this.cartProvider,
     required this.addressProvider,
     required this.notificationProvider,
+    required this.logoCache,
   });
 
   @override
@@ -215,6 +232,7 @@ class App extends StatelessWidget {
             value: notificationProvider),
         ChangeNotifierProvider(create: (_) => NavProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<LogoCacheService>.value(value: logoCache),
       ],
       child: Builder(
         builder: (context) {

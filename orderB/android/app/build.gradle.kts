@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.bakery"
+    namespace = "com.breakingbread.bakery"
     compileSdk = flutter.compileSdkVersion
     // Pinned to a locally-installed NDK so Gradle doesn't try to fetch
     // `flutter.ndkVersion` (28.2.13676358) every cold build. orderB is
@@ -23,8 +23,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.bakery"
+        applicationId = "com.breakingbread.bakery"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

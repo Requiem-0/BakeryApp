@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -8,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../features/businesses/presentation/providers/business_provider.dart';
 import '../../features/catalogue/data/models/product.dart';
 import '../constants.dart';
+import '../storage/logo_cache.dart';
 import 'app_shell.dart';
 import '../../screens/home_screen.dart';
 import '../../features/catalogue/presentation/pages/product_detail_screen.dart';
@@ -15,12 +15,10 @@ import '../../features/cart/presentation/pages/cart_screen.dart';
 import '../../features/checkout/presentation/pages/checkout_screen.dart';
 import '../../features/checkout/presentation/pages/order_success_screen.dart';
 import '../../features/orders/data/models/placed_order.dart';
-import '../../features/orders/presentation/pages/order_tracking_screen.dart';
 import '../../features/orders/presentation/pages/recent_orders_screen.dart';
 import '../../features/favourites/presentation/pages/favourites_screen.dart';
 import '../../features/profile/presentation/pages/add_new_address_screen.dart';
 import '../../features/profile/presentation/pages/change_password_screen.dart';
-import '../../features/profile/presentation/pages/edit_profile_screen.dart';
 import '../../features/profile/presentation/pages/notifications_screen.dart';
 import '../../features/profile/presentation/pages/payment_methods_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
@@ -34,7 +32,10 @@ import '../../features/auth/presentation/pages/verify_email_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../brandkit/app_colors.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
+/// Root navigator key. Exposed so non-widget code (AuthProvider's 401
+/// handler, background notification taps, etc.) can grab a BuildContext
+/// for toasts + navigation without threading one through every layer.
+final GlobalKey<NavigatorState> rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _homeNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'home');
@@ -47,7 +48,7 @@ final GlobalKey<NavigatorState> _profileNavigatorKey =
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: authProvider,
     redirect: (context, state) {
@@ -57,6 +58,32 @@ GoRouter createRouter(AuthProvider authProvider) {
       // While auth is bootstrapping, pin to splash.
       if (authStatus == AuthStatus.initial) {
         return location == '/splash' ? null : '/splash';
+      }
+
+      // Auth done but unauthenticated — boot the user off any page
+      // that genuinely needs a session (their orders, addresses, saved
+      // payments, checkout, etc.). The token clear from
+      // handleUnauthorized has already flipped status and surfaced a
+      // toast; this just makes sure the next paint isn't a 403'd
+      // ghost of the screen they were on.
+      //
+      // Guest-friendly paths (/home, /favourites, /cart, /profile root,
+      // and any /login or /register flow) are intentionally NOT in
+      // this list — guests can browse, just not place orders or read
+      // their personal data.
+      if (authStatus == AuthStatus.unauthenticated) {
+        const protectedPrefixes = [
+          '/home/recent_orders',
+          '/profile/orders',
+          '/profile/addresses',
+          '/profile/payments',
+          '/profile/notifications',
+          '/profile/settings/change-password',
+          '/cart/checkout',
+        ];
+        for (final prefix in protectedPrefixes) {
+          if (location.startsWith(prefix)) return '/login';
+        }
       }
 
       // Auth done — the SplashScreen itself drives the next push so it
@@ -115,16 +142,6 @@ GoRouter createRouter(AuthProvider authProvider) {
           if (order == null) return const _RouteErrorScreen();
           return OrderSuccessScreen(order: order);
         },
-        routes: [
-          GoRoute(
-            path: 'tracking',
-            builder: (context, state) {
-              final order = state.extra as PlacedOrder?;
-              if (order == null) return const _RouteErrorScreen();
-              return OrderTrackingScreen(order: order);
-            },
-          ),
-        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -203,10 +220,6 @@ GoRouter createRouter(AuthProvider authProvider) {
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
                   GoRoute(
-                    path: 'edit',
-                    builder: (context, state) => const EditProfileScreen(),
-                  ),
-                  GoRoute(
                     path: 'addresses',
                     builder: (context, state) => const SavedAddressesScreen(),
                     routes: [
@@ -251,6 +264,26 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
     ],
   );
+}
+
+/// The bakery logo bundled with the build (last snapshot from the
+/// backend, baked into the APK / web assets). Rendered as the splash
+/// fallback when [LogoCacheService] hasn't yet warmed up — instant on
+/// every platform, including web where the cache service is a no-op.
+class _SplashAssetLogo extends StatelessWidget {
+  const _SplashAssetLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/branding/bakery_logo.jpg',
+      width: 100,
+      height: 100,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) =>
+          const Text('🥐', style: TextStyle(fontSize: 48)),
+    );
+  }
 }
 
 /// Fallback screen shown when a route is invalid (404) or when required
@@ -377,7 +410,18 @@ class _SplashScreenState extends State<SplashScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final business = context.watch<BusinessProvider>().current;
-    final logoUrl = AppConstants.resolveImageUrl(business?.logo);
+    // Two-tier fallback for the logo:
+    //   1. The on-disk cached file from LogoCacheService — most
+    //      up-to-date copy (refreshes on every business response).
+    //      Always null on web (no filesystem) and on first-ever
+    //      cold boot before the cache lands.
+    //   2. The asset bundled in the APK / web build at
+    //      assets/branding/bakery_logo.jpg — instant on every
+    //      platform, slightly stale if the bakery changed the logo
+    //      on the backend since the last app release.
+    // The 🥐 emoji is only a final errorBuilder fallback now —
+    // unless the asset bundling itself broke, no one ever sees it.
+    final cachedLogoFile = context.watch<LogoCacheService>().file;
     final name = (business?.businessName.isNotEmpty == true)
         ? business!.businessName
         : AppConstants.appName;
@@ -405,19 +449,16 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
-              child: logoUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: logoUrl,
+              child: cachedLogoFile != null
+                  ? Image.file(
+                      cachedLogoFile,
                       width: 100,
                       height: 100,
                       fit: BoxFit.cover,
-                      fadeInDuration: const Duration(milliseconds: 120),
-                      errorWidget: (_, __, ___) => const Text(
-                        '🥐',
-                        style: TextStyle(fontSize: 48),
-                      ),
+                      errorBuilder: (_, __, ___) =>
+                          const _SplashAssetLogo(),
                     )
-                  : const Text('🥐', style: TextStyle(fontSize: 48)),
+                  : const _SplashAssetLogo(),
             ),
             const SizedBox(height: 24),
             Text(

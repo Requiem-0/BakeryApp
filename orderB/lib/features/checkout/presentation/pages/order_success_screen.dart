@@ -199,9 +199,8 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
 
               // ─── CTAs ───────────────────────────────────────
               PrimaryButton(
-                label: 'Track My Order',
-                onTap: () => context.push('/checkout/success/tracking',
-                    extra: o),
+                label: 'View My Orders',
+                onTap: () => context.go('/home/recent_orders'),
               ),
               const SizedBox(height: 12),
               GestureDetector(

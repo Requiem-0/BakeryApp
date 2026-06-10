@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants.dart';
-import '../../../catalogue/data/datasources/catalogue_local_datasource.dart';
 import '../../../catalogue/data/models/product.dart';
 import '../../../orders/data/models/order.dart';
 import '../../data/models/api_cart.dart';
@@ -303,12 +302,6 @@ class CartProvider extends ChangeNotifier {
         try {
           match = availableProducts.firstWhere((p) => p.id == oi.productId);
         } catch (_) {}
-        if (match == null) {
-          try {
-            match = CatalogueLocalDatasource.products
-                .firstWhere((p) => p.id == oi.productId);
-          } catch (_) {}
-        }
       }
 
       if (match != null) {
@@ -329,7 +322,6 @@ class CartProvider extends ChangeNotifier {
             name: label,
             category: 'breads',
             price: oi.price,
-            rating: 5.0,
             reviews: 100,
             image: '🍴',
             imageUrl: (oi.image.startsWith('http') || oi.image.contains('/'))
@@ -363,7 +355,6 @@ class CartProvider extends ChangeNotifier {
             name: line.productName ?? 'Product',
             category: '',
             price: line.unitPrice,
-            rating: 0,
             reviews: 0,
             image: '🍴',
             imageUrl: AppConstants.resolveImageUrl(line.productImage),

@@ -1,15 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
-/// Fetches the device's current GPS position and reverse-geocodes it into
-/// a human-readable address string.
+/// Fetches the device's current GPS position and reverse-geocodes it
+/// into a street-level address.
 ///
-/// `geolocator` is cross-platform (mobile + web). `geocoding` is
-/// mobile-only — on web/desktop calling it throws MissingPluginException,
-/// so the web build falls back to BigDataCloud's free `reverse-geocode-
-/// client` endpoint (no API key, no rate limit for client-side use).
+/// Reverse geocoding goes through OpenStreetMap Nominatim — Google's
+/// reverse-geocode (which `package:geocoding` wraps on Android) is
+/// thin on Nepal data and tends to return only city-level info, so a
+/// customer in a Pokhara neighbourhood gets just "Pokhara, Gandaki,
+/// Nepal" with no street or ward. Nominatim's community-mapped data
+/// has road names, neighbourhoods, and wards down to the building.
 ///
 /// Returns null on permission denial, service-disabled, or any other
 /// failure. Callers handle null by leaving the form blank so the user
@@ -36,8 +37,22 @@ class LocationService {
         }
       }
 
+      // `bestForNavigation` + `forceLocationManager: true` on Android
+      // skips the fused location provider (which can hand back a
+      // cell-tower or WiFi-based fix that's wildly off — we had a
+      // customer in Newroad Pokhara get reverse-geocoded to Baglung
+      // because the fused provider returned a stale ~50km-off fix
+      // before the GPS chip had locked) and forces the OS
+      // LocationManager API directly off the GPS hardware. Adds a
+      // 20s timeLimit so we don't hang forever on devices that can't
+      // see the sky.
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
+        desiredAccuracy: LocationAccuracy.bestForNavigation,
+        timeLimit: const Duration(seconds: 20),
+        // Ignore any cached fix older than 5 seconds — forces a fresh
+        // GPS read instead of accepting a stale "Baglung" hit from
+        // hours ago.
+        forceAndroidLocationManager: true,
       );
 
       final address = await _reverseGeocode(pos.latitude, pos.longitude);
@@ -53,63 +68,82 @@ class LocationService {
     }
   }
 
+  /// OpenStreetMap Nominatim — keyless, free for client-side use,
+  /// shared rate limit so don't hammer it. Both web and mobile run
+  /// through this so the address detail is uniform across platforms.
   Future<String> _reverseGeocode(double lat, double lng) async {
-    // `geocoding` package has no web implementation — it'd throw
-    // MissingPluginException in a browser. Route web through the HTTP
-    // fallback instead.
-    if (kIsWeb) return _reverseGeocodeViaHttp(lat, lng);
     try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) return _fallbackCoords(lat, lng);
-      final p = placemarks.first;
-      final parts = <String>{};
-      for (final field in [
-        p.street,
-        p.subLocality,
-        p.locality,
-        p.administrativeArea,
-        p.country,
-      ]) {
-        if (field != null && field.trim().isNotEmpty) parts.add(field.trim());
-      }
-      return parts.isEmpty ? _fallbackCoords(lat, lng) : parts.join(', ');
-    } catch (e) {
-      debugPrint('🚨 LocationService._reverseGeocode (native): $e');
-      return _fallbackCoords(lat, lng);
-    }
-  }
-
-  /// Web-only reverse-geocoder. BigDataCloud's `reverse-geocode-client`
-  /// endpoint is keyless and free for client-side use, so this works
-  /// straight from `flutter run -d chrome` with no setup.
-  Future<String> _reverseGeocodeViaHttp(double lat, double lng) async {
-    try {
-      final dio = Dio();
+      final dio = Dio(BaseOptions(
+        // Nominatim policy: requests must identify a real user agent.
+        // Anonymous or fake-browser UAs may be blocked.
+        headers: const {
+          'User-Agent': 'orderB-bakery-app/1.0',
+          'Accept-Language': 'en',
+        },
+        receiveTimeout: const Duration(seconds: 8),
+      ));
       final res = await dio.get<Map<String, dynamic>>(
-        'https://api.bigdatacloud.net/data/reverse-geocode-client',
+        'https://nominatim.openstreetmap.org/reverse',
         queryParameters: {
-          'latitude': lat,
-          'longitude': lng,
-          'localityLanguage': 'en',
+          'lat': lat,
+          'lon': lng,
+          'format': 'json',
+          'addressdetails': 1,
+          // zoom=18 → building-level detail. Lower values widen the
+          // match radius and start returning suburb/city instead.
+          'zoom': 18,
         },
       );
       final data = res.data;
       if (data == null) return _fallbackCoords(lat, lng);
-      final parts = <String>{};
-      for (final key in const [
-        'locality',
-        'city',
-        'principalSubdivision',
-        'countryName',
-      ]) {
-        final v = data[key];
-        if (v is String && v.trim().isNotEmpty) parts.add(v.trim());
+      final addr = data['address'];
+      if (addr is! Map<String, dynamic>) {
+        final display = data['display_name'];
+        if (display is String && display.trim().isNotEmpty) {
+          return display.trim();
+        }
+        return _fallbackCoords(lat, lng);
       }
-      return parts.isEmpty ? _fallbackCoords(lat, lng) : parts.join(', ');
+      return _composeAddress(addr) ?? _fallbackCoords(lat, lng);
     } catch (e) {
-      debugPrint('🚨 LocationService._reverseGeocodeViaHttp: $e');
+      debugPrint('🚨 LocationService._reverseGeocode: $e');
       return _fallbackCoords(lat, lng);
     }
+  }
+
+  /// Builds a "house# road, neighbourhood, ward/suburb, city, state,
+  /// country" string from Nominatim's `address` object. De-dupes so we
+  /// don't get "Pokhara, Pokhara, Gandaki" when the data overlaps.
+  String? _composeAddress(Map<String, dynamic> addr) {
+    final parts = <String>[];
+    final seen = <String>{};
+    void add(String? s) {
+      if (s == null) return;
+      final t = s.trim();
+      if (t.isEmpty) return;
+      final key = t.toLowerCase();
+      if (!seen.add(key)) return;
+      parts.add(t);
+    }
+
+    final houseNumber = addr['house_number'] as String?;
+    final road = addr['road'] as String?;
+    if (road != null && road.trim().isNotEmpty) {
+      add(houseNumber != null && houseNumber.trim().isNotEmpty
+          ? '$houseNumber $road'
+          : road);
+    }
+    add(addr['neighbourhood'] as String?);
+    add(addr['suburb'] as String?);
+    add(addr['village'] as String? ??
+        addr['town'] as String? ??
+        addr['city'] as String?);
+    add(addr['state'] as String? ??
+        addr['state_district'] as String? ??
+        addr['region'] as String?);
+    add(addr['country'] as String?);
+
+    return parts.isEmpty ? null : parts.join(', ');
   }
 
   String _fallbackCoords(double lat, double lng) =>

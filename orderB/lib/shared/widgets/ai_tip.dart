@@ -19,7 +19,7 @@ class _AiTipState extends State<AiTip> with SingleTickerProviderStateMixin {
     "Sourdough bread acts as a prebiotic, which means that the fiber in the bread helps feed the 'good' bacteria in your intestines.",
     "Multigrain bread provides complex carbohydrates ensuring a steady release of long-lasting energy throughout your day.",
     "Whole wheat pastries contain more nutrients and fiber than their refined counterparts, keeping you full and satisfied.",
-    "Rye bread is incrednsibly dee with nutrients and has a lower glycemic index, preventing sudden blood sugar spikes.",
+    "Rye bread is incredibly dense with nutrients and has a lower glycemic index, preventing sudden blood sugar spikes.",
     "Oatmeal cookies, when made with whole oats, offer a great source of soluble fiber and can be a heart-healthy treat.",
     "Breads with seeds like flax or chia add a massive boost of Omega-3 fatty acids to your daily diet.",
     "Fermented doughs like sourdough break down gluten during fermentation, making it easier to digest for some people.",

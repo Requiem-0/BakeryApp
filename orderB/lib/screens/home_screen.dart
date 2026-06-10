@@ -12,7 +12,6 @@ import '../features/catalogue/presentation/widgets/category_pill.dart';
 import '../features/catalogue/presentation/widgets/product_card.dart';
 import '../features/catalogue/presentation/widgets/grid_product_card.dart';
 import '../features/orders/presentation/widgets/reorder_card.dart';
-import '../features/orders/data/models/placed_order.dart';
 import '../features/orders/data/models/order.dart';
 import '../features/orders/presentation/providers/order_provider.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
@@ -114,9 +113,6 @@ class _HomeScreenState extends State<HomeScreen>
         break;
       case 'price_high':
         list.sort((a, b) => b.price.compareTo(a.price));
-        break;
-      case 'rating':
-        list.sort((a, b) => b.rating.compareTo(a.rating));
         break;
       case 'popular':
         list.sort((a, b) => b.reviews.compareTo(a.reviews));
@@ -302,10 +298,6 @@ class _HomeScreenState extends State<HomeScreen>
                                  context.read<CartProvider>().reorder(order);
                                  context.push('/cart');
                                },
-                               onTrack: () => context.push(
-                                 '/checkout/success/tracking',
-                                 extra: PlacedOrder.fromOrder(order),
-                               ),
                              ),
                            );
                          },
@@ -461,7 +453,6 @@ class _SortButton extends StatelessWidget {
     ('default', 'Default'),
     ('price_low', 'Price: Low → High'),
     ('price_high', 'Price: High → Low'),
-    ('rating', 'Top Rated'),
     ('popular', 'Most Popular'),
   ];
 

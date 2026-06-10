@@ -4,7 +4,6 @@ import '../../../catalogue/presentation/providers/catalogue_provider.dart';
 import '../../../catalogue/data/models/product.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/order.dart';
-import '../../data/models/placed_order.dart';
 import '../widgets/reorder_card.dart';
 import '../widgets/order_invoice_sheet.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
@@ -185,10 +184,6 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                           child: OrderCard(
                             order: order,
                             onTap: () => OrderInvoiceSheet.show(context, order),
-                            onTrack: () => context.push(
-                              '/checkout/success/tracking',
-                              extra: PlacedOrder.fromOrder(order),
-                            ),
                             onReorder: () async {
                               debugPrint('📋 RecentOrdersScreen reorder tapped: order ${order.id} with ${order.items.length} item(s)');
                               final cat = context.read<CatalogueProvider>();

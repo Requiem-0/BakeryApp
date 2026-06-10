@@ -1,7 +1,3 @@
-import 'dart:io';
-
-import 'package:dio/dio.dart';
-
 import '../../../../core/errors/api_failure.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_result.dart';
@@ -74,21 +70,6 @@ class AuthRepository {
     }
   }
 
-  Future<ApiResult<String>> qrLogin({required String qrToken}) async {
-    try {
-      final res = await _api.post('/auth/qr-login', body: {'qrToken': qrToken});
-      final token = _extractToken(res.data);
-      if (token == null) {
-        return ApiResult.failure(const ApiFailure(
-          message: 'QR login response did not contain a session token.',
-        ));
-      }
-      return ApiResult.success(token);
-    } catch (e) {
-      return ApiResult.failure(ApiClient.parseError(e));
-    }
-  }
-
   Future<ApiResult<void>> sendResetToken({String? email, String? phone}) async {
     try {
       await _api.post('/auth/send-token', body: {
@@ -141,24 +122,6 @@ class AuthRepository {
         ));
       }
       return ApiResult.success(Customer.fromJson(data));
-    } catch (e) {
-      return ApiResult.failure(ApiClient.parseError(e));
-    }
-  }
-
-  /// Multipart PATCH /auth/me — both fields optional.
-  Future<ApiResult<void>> updateProfile({
-    String? address,
-    String? imageFilePath,
-  }) async {
-    try {
-      final form = FormData.fromMap({
-        if (address != null) 'address': address,
-        if (imageFilePath != null && File(imageFilePath).existsSync())
-          'image': await MultipartFile.fromFile(imageFilePath),
-      });
-      await _api.dio.patch('/auth/me', data: form);
-      return ApiResult.success(null);
     } catch (e) {
       return ApiResult.failure(ApiClient.parseError(e));
     }

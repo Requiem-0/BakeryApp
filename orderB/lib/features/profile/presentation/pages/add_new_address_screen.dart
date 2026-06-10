@@ -267,6 +267,21 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                 const SizedBox(height: 2),
                 Text(_pinned!.address,
                     style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
+                const SizedBox(height: 2),
+                // Coordinates surface so the customer can sanity-check
+                // when the resolved address looks wrong — paste these
+                // into Google Maps to see what the phone actually
+                // reported. If they're off, GPS hasn't locked yet (or
+                // a VPN is interfering); tap the refresh icon to retry.
+                Text(
+                  '${_pinned!.latitude.toStringAsFixed(5)}, '
+                  '${_pinned!.longitude.toStringAsFixed(5)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 10,
+                    color: theme.colorScheme.outline,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ],
             ),
           ),

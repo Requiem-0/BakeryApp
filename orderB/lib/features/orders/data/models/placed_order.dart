@@ -1,5 +1,3 @@
-import 'order.dart';
-
 /// Snapshot of a just-placed order, passed to the success screen.
 class PlacedOrder {
   final String id;
@@ -19,26 +17,6 @@ class PlacedOrder {
     required this.addressFull,
     this.status = 'Processing',
   });
-
-  factory PlacedOrder.fromOrder(Order o) {
-    return PlacedOrder(
-      id: o.id,
-      eta: '',
-      items: o.items
-          .map((i) => PlacedOrderItem(
-                name: i.name,
-                image: i.image,
-                quantity: i.qty,
-                price: i.price,
-                selectedVariants: i.selectedVariants,
-              ))
-          .toList(),
-      total: o.total,
-      addressLabel: '',
-      addressFull: '',
-      status: o.status,
-    );
-  }
 }
 
 class PlacedOrderItem {

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../data/models/customer.dart';
 import '../../data/repositories/auth_repository.dart';
 
@@ -62,12 +64,18 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Called by ApiClient's 401 interceptor. Idempotent: only acts if currently
-  /// authenticated. Clears token + flips state to unauthenticated.
+  /// authenticated. Clears token, flips state to unauthenticated, and
+  /// surfaces a toast so the user understands why they got kicked. The
+  /// router's protected-path redirect handles the actual nav to /login.
   Future<void> handleUnauthorized() async {
     if (_status != AuthStatus.authenticated) return;
     await _tokenStorage.clear();
     _user = null;
     _setStatus(AuthStatus.unauthenticated);
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      AppToast.info(ctx, 'Session expired. Please sign in again.');
+    }
   }
 
   // ── Auth flows ────────────────────────────────────────────────────────────
@@ -115,23 +123,6 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> verifyEmail({required String email, required String token}) =>
       _runSimple(() => _repo.verifyEmail(email: email, token: token));
 
-  Future<bool> qrLogin({required String qrToken}) => _run(() async {
-        final result = await _repo.qrLogin(qrToken: qrToken);
-        if (result.isFailure || result.data == null) {
-          _errorMessage = result.failure?.message ?? 'QR login failed.';
-          return false;
-        }
-        await _tokenStorage.write(result.data!);
-        final me = await _repo.getMe();
-        if (me.isFailure || me.data == null) {
-          await _tokenStorage.clear();
-          _errorMessage = me.failure?.message ?? 'Failed to load profile.';
-          return false;
-        }
-        _user = me.data;
-        _setStatus(AuthStatus.authenticated);
-        return true;
-      });
 
   Future<bool> sendResetToken({String? email, String? phone}) =>
       _runSimple(() => _repo.sendResetToken(email: email, phone: phone));
@@ -156,23 +147,6 @@ class AuthProvider extends ChangeNotifier {
             newPassword: newPassword,
           ));
 
-  /// On success, refreshes [user] from /me so UI sees the new fields.
-  Future<bool> updateProfile({String? address, String? imageFilePath}) =>
-      _run(() async {
-        final result = await _repo.updateProfile(
-          address: address,
-          imageFilePath: imageFilePath,
-        );
-        if (result.isFailure) {
-          _errorMessage = result.failure?.message ?? 'Profile update failed.';
-          return false;
-        }
-        final me = await _repo.getMe();
-        if (me.isSuccess && me.data != null) {
-          _user = me.data;
-        }
-        return true;
-      });
 
   Future<bool> deactivate() => _run(() async {
         final result = await _repo.deactivate();

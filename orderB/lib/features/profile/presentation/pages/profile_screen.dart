@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/service_icon.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
-import '../../../orders/data/models/placed_order.dart';
 
 /// Builds an onTap that pushes [path] for authed users, or `/login` for
 /// guests. After login, [LoginScreen] pops back so the tile they tapped
@@ -31,14 +30,6 @@ class ProfileScreen extends StatelessWidget {
     // the OrderProvider is empty anyway, but skipping the read keeps the
     // build clean.
     final orderProv = context.watch<OrderProvider>();
-    const terminalStatuses = [
-      'delivered', 'picked up', 'cancelled', 'completed',
-    ];
-    final activeOrders = isAuth
-        ? orderProv.orders
-            .where((o) => !terminalStatuses.contains(o.status.toLowerCase()))
-            .toList()
-        : const [];
 
     return SafeArea(
       child: ListView(
@@ -47,70 +38,66 @@ class ProfileScreen extends StatelessWidget {
           Text('My Profile', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 20),
 
-          // Profile card. Authed users tap into edit; guests get routed
-          // to /login via the same helper so the row stays interactive.
-          GestureDetector(
-            onTap: _pushOrLogin(context, isAuth, '/profile/edit'),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).scaffoldBackgroundColor,
-                    Theme.of(context).dividerColor.withValues(alpha: 0.4),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .tertiary
-                        .withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      gradient: Theme.of(context)
-                          .extension<AppThemeExtension>()
-                          ?.primaryGradient,
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(initials,
-                        style: Theme.of(context)
-                            .textTheme
-                            .displayLarge
-                            ?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                fontSize: 28)),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(name,
-                            style: Theme.of(context).textTheme.headlineLarge),
-                        if (isAuth)
-                          Text(email,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      size: 22),
+          // Profile card — read-only display of the signed-in identity.
+          // No edit screen: the backend's PATCH /auth/me only accepts a
+          // tiny subset of fields and we chose not to ship a partial
+          // edit UI.
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Theme.of(context).dividerColor.withValues(alpha: 0.4),
                 ],
               ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .tertiary
+                      .withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    gradient: Theme.of(context)
+                        .extension<AppThemeExtension>()
+                        ?.primaryGradient,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(initials,
+                      style: Theme.of(context)
+                          .textTheme
+                          .displayLarge
+                          ?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 28)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(name,
+                          style: Theme.of(context).textTheme.headlineLarge),
+                      if (isAuth)
+                        Text(email,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -121,23 +108,6 @@ class ProfileScreen extends StatelessWidget {
           // pops them back here once they sign in.
           const _SectionHeader(label: 'ORDERS & HISTORY'),
           const SizedBox(height: 8),
-          if (activeOrders.isNotEmpty) ...[
-            _MenuTile(
-                icon: Icons.near_me_rounded,
-                label: 'Track Order',
-                sub: '${activeOrders.length} active',
-                onTap: () {
-                  if (activeOrders.length == 1) {
-                    context.push(
-                      '/checkout/success/tracking',
-                      extra: PlacedOrder.fromOrder(activeOrders.first),
-                    );
-                  } else {
-                    context.push('/profile/orders');
-                  }
-                }),
-            const SizedBox(height: 4),
-          ],
           _MenuTile(
               icon: Icons.receipt_long_rounded,
               label: 'My Orders',

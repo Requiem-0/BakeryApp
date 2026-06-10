@@ -18,18 +18,47 @@ dependencies:
   shared_preferences: ^2.5.5
   dio: ^5.4.3
   flutter_secure_storage: ^9.2.2
-  image_picker: ^1.1.2
   geolocator: ^11.0.0
-  geocoding: ^3.0.0
   cached_network_image: ^3.4.1
   package_info_plus: ^9.0.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/animations/
+    - assets/branding/
+
+# Generates Android launcher icons from the Breaking Bread logo. Run
+# `dart run flutter_launcher_icons` after touching this block. The
+# adaptive icon (Android 8+) layers the logo onto the same off-white
+# the logo itself sits on, so the icon looks consistent in launchers
+# that draw the foreground without the background (e.g. Pixel Launcher).
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/branding/bakery_logo.jpg"
+  min_sdk_android: 21
+  adaptive_icon_background: "#F5F0E8"
+  adaptive_icon_foreground: "assets/branding/bakery_logo.jpg"
+
+# Generates the Android pre-Flutter splash (the white-screen-before-
+# Dart-starts). Run `dart run flutter_native_splash:create` after
+# touching this block. Android 12+ uses its own splash API; we set
+# both the legacy and the new config.
+flutter_native_splash:
+  color: "#F5F0E8"
+  image: "assets/branding/bakery_logo.jpg"
+  android: true
+  ios: false
+  web: false
+  android_12:
+    image: "assets/branding/bakery_logo.jpg"
+    color: "#F5F0E8"
