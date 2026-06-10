@@ -26,6 +26,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
 
   final _locationService = LocationService();
   bool _locating = false;
+  bool _saving = false;
   PickedLocation? _pinned;
 
   @override
@@ -62,6 +63,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final addrStr = [
       _streetCtrl.text.trim(),
       _cityCtrl.text.trim(),
@@ -75,6 +77,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
       return;
     }
 
+    setState(() => _saving = true);
     final prov = context.read<AddressProvider>();
     final ok = await prov.addAddress(
       name: _labelCtrl.text.trim(),
@@ -85,13 +88,13 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
       longitude: _pinned?.longitude ?? 0,
     );
 
-    if (mounted) {
-      if (ok) {
-        AppToast.success(context, 'Address saved!');
-        context.pop();
-      } else {
-        AppToast.error(context, prov.error ?? 'Failed to save address.');
-      }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) {
+      AppToast.success(context, 'Address saved!');
+      context.pop();
+    } else {
+      AppToast.error(context, prov.error ?? 'Failed to save address.');
     }
   }
 
@@ -145,7 +148,11 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: PrimaryButton(label: 'Save Address', onTap: _save),
+              child: PrimaryButton(
+                label: 'Save Address',
+                onTap: _saving ? null : _save,
+                isLoading: _saving,
+              ),
             ),
           ],
         ),

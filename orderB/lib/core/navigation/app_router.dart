@@ -270,11 +270,19 @@ GoRouter createRouter(AuthProvider authProvider) {
 /// backend, baked into the APK / web assets). Rendered as the splash
 /// fallback when [LogoCacheService] hasn't yet warmed up — instant on
 /// every platform, including web where the cache service is a no-op.
+///
+/// Only used on prod builds — the bundled JPG is the Breaking Bread
+/// logo and would look wrong on dev/QA builds pointed at a different
+/// business. Dev builds skip straight to the 🥐 emoji until the
+/// LogoCacheService lands the dev business's actual logo.
 class _SplashAssetLogo extends StatelessWidget {
   const _SplashAssetLogo();
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConstants.useProd) {
+      return const Text('🥐', style: TextStyle(fontSize: 48));
+    }
     return Image.asset(
       'assets/branding/bakery_logo.jpg',
       width: 100,

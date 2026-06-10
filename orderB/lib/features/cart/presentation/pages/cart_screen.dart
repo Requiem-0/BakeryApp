@@ -92,6 +92,7 @@ class CartScreen extends StatelessWidget {
                             children: [
                               ProductCard(
                                 product: item.product,
+                                priceOverride: item.unitPrice,
                                 onTap: () => context.push('/home/product',
                                     extra: item.product),
                                 onQuickAdd: () =>

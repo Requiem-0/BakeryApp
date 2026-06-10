@@ -15,6 +15,14 @@ class ProductCard extends StatelessWidget {
   final bool isFavourite;
   final VoidCallback onToggleFavourite;
 
+  /// Optional override for the price shown on this card. Used by the
+  /// cart screen to display the customer's actual selected variant
+  /// price (e.g. Medium @ Rs 30) instead of the product's display
+  /// price (e.g. Simmi.price = Rs 20, the cheapest Small variant).
+  /// Null on browse surfaces where the product's own price is
+  /// authoritative.
+  final double? priceOverride;
+
   const ProductCard({
     super.key,
     required this.product,
@@ -22,6 +30,7 @@ class ProductCard extends StatelessWidget {
     required this.onQuickAdd,
     required this.isFavourite,
     required this.onToggleFavourite,
+    this.priceOverride,
   });
 
   @override
@@ -102,7 +111,8 @@ class ProductCard extends StatelessWidget {
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                AppConstants.formatPrice(product.price),
+                                AppConstants.formatPrice(
+                                    priceOverride ?? product.price),
                                 style: AppTextStyles.price.copyWith(
                                     color: colors.primary),
                                 overflow: TextOverflow.ellipsis,

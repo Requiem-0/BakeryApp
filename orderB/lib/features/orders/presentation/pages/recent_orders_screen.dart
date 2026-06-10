@@ -228,9 +228,23 @@ class _EmptyOrders extends StatelessWidget {
                 style: theme.textTheme.headlineMedium),
             const SizedBox(height: 8),
             Text(
-              'Your order history will appear here',
+              'Your order history will appear here once you place your first order.',
               style: theme.textTheme.bodySmall,
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(Icons.storefront_rounded, size: 18),
+              label: const Text('Browse menu'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                side: BorderSide(color: theme.dividerColor, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
             ),
           ],
         ),

@@ -5,6 +5,51 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../address/presentation/providers/address_provider.dart';
 
+class _EmptyAddresses extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _EmptyAddresses({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.location_off_outlined,
+                size: 80, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('No saved addresses',
+                style: theme.textTheme.headlineMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Add a delivery address so we know where to bring your order.',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+              label: const Text('Add address'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                side: BorderSide(color: theme.dividerColor, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class SavedAddressesScreen extends StatelessWidget {
   const SavedAddressesScreen({super.key});
 
@@ -29,7 +74,11 @@ class SavedAddressesScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView(
+              child: addresses.isEmpty
+                  ? _EmptyAddresses(
+                      onAdd: () => context.push('/profile/addresses/add'),
+                    )
+                  : ListView(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 children: [
                   ...addresses.map((a) {
