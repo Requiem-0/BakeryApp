@@ -197,7 +197,11 @@ class Order {
     DateTime? createdAt;
     final rawDate = json['createdAt'] ?? json['date'];
     if (rawDate != null) {
-      createdAt = DateTime.tryParse(rawDate.toString());
+      // Backend stores UTC. Convert to the device's local tz so
+      // "Today, 4:30 PM" actually means 4:30 in Nepal, not 4:30 in
+      // Greenwich. tryParse already infers the timezone from the
+      // 'Z' suffix; toLocal flips it onto the user's clock.
+      createdAt = DateTime.tryParse(rawDate.toString())?.toLocal();
     }
 
     final date = createdAt != null
