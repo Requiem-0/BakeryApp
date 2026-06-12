@@ -197,11 +197,27 @@ class Order {
     DateTime? createdAt;
     final rawDate = json['createdAt'] ?? json['date'];
     if (rawDate != null) {
-      // Backend stores UTC. Convert to the device's local tz so
-      // "Today, 4:30 PM" actually means 4:30 in Nepal, not 4:30 in
-      // Greenwich. tryParse already infers the timezone from the
-      // 'Z' suffix; toLocal flips it onto the user's clock.
-      createdAt = DateTime.tryParse(rawDate.toString())?.toLocal();
+      // Backend stores UTC. The string usually carries a 'Z', but
+      // we've been burned before — when it doesn't, tryParse falls
+      // back to "local" and our .toLocal() becomes a no-op (so the
+      // user sees a UTC timestamp on their Nepal clock, off by
+      // 5h45m). Coerce to UTC when no tz was seen, then convert.
+      var parsed = DateTime.tryParse(rawDate.toString());
+      if (parsed != null) {
+        if (!parsed.isUtc) {
+          parsed = DateTime.utc(
+            parsed.year,
+            parsed.month,
+            parsed.day,
+            parsed.hour,
+            parsed.minute,
+            parsed.second,
+            parsed.millisecond,
+            parsed.microsecond,
+          );
+        }
+        createdAt = parsed.toLocal();
+      }
     }
 
     final date = createdAt != null
