@@ -98,23 +98,27 @@ class OrderItem {
           .map((k, v) => MapEntry(k.toString(), v.toString()));
     }
 
-    // Addons can come back as full objects (when the backend joins the
-    // Addon collection) or as bare ObjectId strings (when it doesn't).
-    // Parse defensively — name/price stay empty when the backend
-    // doesn't hydrate them; OrderProvider enriches the missing pieces
-    // from the catalogue on read.
+    // Addon entries come back as objects with both the catalogue id
+    // (under `addon` or `addonId`) AND a Mongoose-generated subdoc
+    // `_id`. We want the catalogue id so enrichment can match against
+    // product.addons — `_id` would only match other subdocs of the
+    // same line. Field priority reflects that: catalogue keys first,
+    // subdoc id last as a fallback (bare strings handled too).
+    // Price field varies (`price` on tickets, `unitPrice` on cart).
     final List<OrderItemAddon> addons = [];
     final rawAddons = json['addons'];
     if (rawAddons is List) {
       for (final raw in rawAddons) {
         if (raw is Map) {
-          final id = (raw['_id'] ?? raw['id'] ?? raw['addon'] ?? '')
-              .toString();
+          final id =
+              (raw['addon'] ?? raw['addonId'] ?? raw['_id'] ?? raw['id'] ?? '')
+                  .toString();
           if (id.isEmpty) continue;
+          final priceRaw = raw['price'] ?? raw['unitPrice'];
           addons.add(OrderItemAddon(
             id: id,
             name: raw['name']?.toString() ?? '',
-            price: (raw['price'] as num?)?.toDouble() ?? 0,
+            price: (priceRaw as num?)?.toDouble() ?? 0,
             quantity: (raw['quantity'] as num?)?.toInt() ?? 1,
           ));
         } else if (raw is String && raw.isNotEmpty) {

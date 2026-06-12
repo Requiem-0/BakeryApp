@@ -59,21 +59,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         } catch (_) {/* keep synthetic */}
       }
 
-      // Ticket POST schema, learned by trial and rejection:
-      //   • `preTaxPrice`  → not allowed
-      //   • `variantItem`  → not allowed (cart endpoint accepts it,
-      //                      this one doesn't)
-      //   • `variant: id`  → accepted; sending the label silently
-      //                      no-ops and you get "variant unavailable"
-      //   • `addons`       → array of `{_id, quantity}` objects;
-      //                      Mongoose maps each into an Addon doc.
+      // Matches the spec for POST /api/ticket/:
+      //   • variant  : ObjectId string of the chosen variantItem
+      //   • addons   : array of {addonId, quantity}
+      //   • discounts: omit / empty when the product is
+      //                `discountType: "applyEverytime"` (backend
+      //                auto-applies); send full {_id, name, type,
+      //                rate} objects otherwise.
       return {
         'product': productId,
         'quantity': i.quantity,
         if (i.variantItemId != null) 'variant': i.variantItemId,
         'unitPrice': i.unitPrice,
         'addons': i.addons
-            .map((a) => {'_id': a.addonId, 'quantity': a.quantity})
+            .map((a) => {'addonId': a.addonId, 'quantity': a.quantity})
             .toList(),
         'note': '',
         'discounts': const [],

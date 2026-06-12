@@ -40,6 +40,7 @@ class CartRepository {
     String? variantItemId,
     int quantity = 1,
     Map<String, int> addons = const {},
+    List<String> discountIds = const [],
   }) async {
     try {
       final res = await _api.post('/cart/', body: {
@@ -52,13 +53,17 @@ class CartRepository {
             'addons': addons.entries
                 .map((e) => {'addon': e.key, 'quantity': e.value})
                 .toList(),
+            // Per spec: for `discountType: "applyEverytime"` products
+            // the backend auto-applies. The full {_id, name, type,
+            // rate} shape is only needed for selective discounts
+            // (coupon codes etc.) — none of which we surface yet, so
+            // an empty array is correct for now.
             'discounts': const [],
           },
         ],
       });
       return ApiResult.success(ApiCart.fromAny(res.data));
     } catch (e) {
-      debugPrint('🚨 CartRepository.addItem: $e');
       return ApiResult.failure(ApiClient.parseError(e));
     }
   }

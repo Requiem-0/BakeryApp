@@ -178,6 +178,7 @@ class CartProvider extends ChangeNotifier {
       variantItemId: effectiveVariant?.id,
       quantity: quantity,
       addons: addons,
+      discountIds: product.discountIds,
     );
     if (result.isFailure) {
       _restore(snapshot);

@@ -41,8 +41,10 @@ class ApiProduct {
   final dynamic compositeItems;
   final bool? usesCompositeItems;
 
-  // Discounts attached to this product (just IDs — fetch full discount
-  // records separately if/when needed).
+  // Discount IDs attached to this product. Backend has been seen
+  // returning these as bare id strings on some endpoints and as
+  // full populated objects on others; [_parseDiscountIds] handles
+  // both and just keeps the `_id`s.
   final List<String> discounts;
   final String? discountType;
 
@@ -117,7 +119,7 @@ class ApiProduct {
         lowStock: json['lowStock'] as num?,
         compositeItems: json['compositeItems'],
         usesCompositeItems: json['usesCompositeItems'] as bool?,
-        discounts: parseStringList(json['discounts']),
+        discounts: _parseDiscountIds(json['discounts']),
         discountType: json['discountType'] as String?,
         businessId: json['businessId'] as String?,
         businessName: json['businessName'] as String?,
@@ -167,6 +169,25 @@ class ApiProduct {
         if (businessPanNumber != null) 'businessPanNumber': businessPanNumber,
         if (variants != null) 'variants': variants!.toJson(),
       };
+
+  /// Pulls discount `_id`s out of whatever shape the backend sent.
+  /// Some endpoints return bare id strings, others return populated
+  /// objects with `{_id, name, rate, type, ...}`. Either way we only
+  /// need the id — the cart endpoint wants those passed back when
+  /// adding a discounted product, otherwise the line gets rejected.
+  static List<String> _parseDiscountIds(dynamic raw) {
+    if (raw is! List) return const [];
+    final result = <String>[];
+    for (final entry in raw) {
+      if (entry is String && entry.isNotEmpty) {
+        result.add(entry);
+      } else if (entry is Map) {
+        final id = (entry['_id'] ?? entry['id'])?.toString();
+        if (id != null && id.isNotEmpty) result.add(id);
+      }
+    }
+    return result;
+  }
 }
 
 /// Addons come back in two shapes depending on the endpoint:

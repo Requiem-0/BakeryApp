@@ -54,6 +54,11 @@ class Product {
   /// product line. Empty list when the product has none.
   final List<ProductAddon> addons;
 
+  /// Discount `_id`s the backend has bound to this product. We forward
+  /// these to the cart endpoint on add — discounted products can't be
+  /// silently checked out without them or the line gets rejected.
+  final List<String> discountIds;
+
   const Product({
     required this.id,
     this.adminId,
@@ -70,6 +75,7 @@ class Product {
     this.variants = const [],
     this.variantItems = const [],
     this.addons = const [],
+    this.discountIds = const [],
   });
 
   /// True when this product needs the customer to choose a variant before
@@ -134,6 +140,7 @@ class Product {
           .where((a) => a.id.isNotEmpty)
           .map(ProductAddon.fromApi)
           .toList(),
+      discountIds: api.discounts,
     );
   }
 

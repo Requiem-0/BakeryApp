@@ -29,39 +29,49 @@ class AppBottomNavBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // Expanded on every child — `spaceAround` with natural-sized
+          // children overflows the second the window shrinks below
+          // ~200px. Flexing them keeps the bar honest at any width.
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Home',
-                index: 0,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home_rounded,
+                  label: 'Home',
+                  index: 0,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
-              _NavItem(
-                icon: Icons.favorite_border_rounded,
-                activeIcon: Icons.favorite_rounded,
-                label: 'Favourites',
-                index: 1,
-                currentIndex: currentIndex,
-                onTap: onTap,
-                activeColor: colors.error,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.favorite_border_rounded,
+                  activeIcon: Icons.favorite_rounded,
+                  label: 'Favourites',
+                  index: 1,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                  activeColor: colors.error,
+                ),
               ),
-              _NavItemCart(
-                index: 2,
-                currentIndex: currentIndex,
-                onTap: onTap,
-                badge: cartCount,
+              Expanded(
+                child: _NavItemCart(
+                  index: 2,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                  badge: cartCount,
+                ),
               ),
-              _NavItem(
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profile',
-                index: 3,
-                currentIndex: currentIndex,
-                onTap: onTap,
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'Profile',
+                  index: 3,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
               ),
             ],
           ),

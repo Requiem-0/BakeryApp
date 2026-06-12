@@ -8,6 +8,8 @@ import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../cart/presentation/widgets/product_bottom_cta.dart';
+import '../providers/catalogue_provider.dart';
+import '../widgets/grid_product_card.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -308,15 +310,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(height: 24),
                       ],
 
-                      // Special-instructions field used to live here.
-                      // Removed because the cart and ticket POST schemas
-                      // have no slot for per-item notes — keeping the
-                      // textbox would have been fake UI (typed text
-                      // never reaching the backend). Re-add once the
-                      // backend grows a `note` field on the cart line
-                      // or ticket item.
-                      const SizedBox(
-                          height: 120), // Padding for the floating action bar
+                      // "You may also like" — same category, current
+                      // product excluded. Doubles as engagement bait
+                      // AND fills the empty middle for plain products
+                      // that have no variants/addons/description so
+                      // the screen doesn't look like a void.
+                      _RelatedProducts(current: widget.product),
+
+                      // Padding so the floating CTA never sits on top
+                      // of the last card.
+                      const SizedBox(height: 120),
                     ],
                   ),
                 ),
@@ -666,6 +669,64 @@ class _AddonStepperButton extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(icon, size: 16, color: colors.onPrimary),
       ),
+    );
+  }
+}
+
+/// Horizontal "You may also like" carousel that pulls from the same
+/// category as [current]. Renders nothing when the catalogue has no
+/// siblings to suggest — keeps the empty case clean.
+class _RelatedProducts extends StatelessWidget {
+  final Product current;
+
+  const _RelatedProducts({required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final catProv = context.watch<CatalogueProvider>();
+    final favProv = context.watch<FavouritesProvider>();
+    final related = catProv.products
+        .map(Product.fromApi)
+        .where((p) =>
+            p.id != current.id &&
+            p.category.isNotEmpty &&
+            p.category == current.category)
+        .take(6)
+        .toList();
+    if (related.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Text('You may also like',
+            style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 230,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            itemCount: related.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (_, i) {
+              final p = related[i];
+              return SizedBox(
+                width: 160,
+                child: GridProductCard(
+                  product: p,
+                  onTap: () => context.push('/home/product', extra: p),
+                  onQuickAdd: () =>
+                      context.read<CartProvider>().addProduct(p),
+                  isFavourite: favProv.isFavourite(p.id),
+                  onToggleFavourite: () => favProv.toggle(p.id),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
