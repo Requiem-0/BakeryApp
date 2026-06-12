@@ -46,10 +46,7 @@ class ProductImageBox extends StatelessWidget {
               fit: BoxFit.cover,
               fadeInDuration: const Duration(milliseconds: 120),
               placeholder: (_, __) => Center(child: fallback),
-              errorWidget: (_, url, error) {
-                debugPrint('[ProductImageBox] image failed: $url ($error)');
-                return Center(child: fallback);
-              },
+              errorWidget: (_, __, ___) => Center(child: fallback),
             ),
           )
         : Center(child: fallback);

@@ -1,23 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lottie/lottie.dart';
-import '../features/catalogue/data/models/category.dart';
-import '../features/catalogue/data/models/product.dart';
-import '../features/catalogue/presentation/providers/catalogue_provider.dart';
-import '../features/cart/presentation/providers/cart_provider.dart';
-import '../features/favourites/presentation/providers/favourites_provider.dart';
-import '../features/address/presentation/providers/address_provider.dart';
-import '../features/address/presentation/widgets/address_selector.dart';
-import '../features/catalogue/presentation/widgets/category_pill.dart';
-import '../features/catalogue/presentation/widgets/product_card.dart';
-import '../features/catalogue/presentation/widgets/grid_product_card.dart';
-import '../features/orders/presentation/widgets/reorder_card.dart';
-import '../features/orders/data/models/order.dart';
-import '../features/orders/presentation/providers/order_provider.dart';
-import '../features/auth/presentation/providers/auth_provider.dart';
-import '../shared/widgets/ai_tip.dart';
-import '../shared/widgets/section_header.dart';
-import '../core/navigation/nav_provider.dart';
+import '../../../catalogue/data/models/category.dart';
+import '../../../catalogue/data/models/product.dart';
+import '../../../catalogue/presentation/providers/catalogue_provider.dart';
+import '../../../cart/presentation/providers/cart_provider.dart';
+import '../../../favourites/presentation/providers/favourites_provider.dart';
+import '../../../address/presentation/providers/address_provider.dart';
+import '../../../address/presentation/widgets/address_selector.dart';
+import '../../../catalogue/presentation/widgets/category_pill.dart';
+import '../../../catalogue/presentation/widgets/product_card.dart';
+import '../../../catalogue/presentation/widgets/grid_product_card.dart';
+import '../../../orders/presentation/widgets/reorder_card.dart';
+import '../../../orders/data/models/order.dart';
+import '../../../orders/presentation/providers/order_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../shared/widgets/ai_tip.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../../core/navigation/nav_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -53,21 +54,15 @@ class _HomeScreenState extends State<HomeScreen>
       final cat = context.read<CatalogueProvider>();
       if (cat.products.isEmpty &&
           cat.productsState != CatalogueLoadState.loading) {
-        cat.loadAllProducts().catchError((e, st) {
-          debugPrint('🚨 HomeScreen: loadAllProducts failed: $e\n$st');
-        });
+        unawaited(cat.loadAllProducts());
       }
       final auth = context.read<AuthProvider>();
       if (auth.isAuthenticated) {
-        // "Recent Purchases" used to come from /products/recent-purchase,
-        // which is server-filtered to completed orders. We now derive the
-        // list from the user's full order history below, so that load is
-        // no longer needed.
+        // Recent Orders panel below derives from the full history,
+        // not the old /products/recent-purchase endpoint.
         final orderProv = context.read<OrderProvider>();
         if (orderProv.orders.isEmpty && !orderProv.isLoading) {
-          orderProv.fetchOrders().catchError((e, st) {
-            debugPrint('🚨 HomeScreen: fetchOrders failed: $e\n$st');
-          });
+          unawaited(orderProv.fetchOrders());
         }
       }
     });
@@ -308,14 +303,10 @@ class _HomeScreenState extends State<HomeScreen>
                                onTap: () =>
                                    context.push('/home/recent_orders'),
                                onReorder: () {
-                                 debugPrint(
-                                     '🏠 RecentOrder reorder tapped: ${order.id} (${order.items.length} items)');
-                                 // Pass the live catalogue so reorder
-                                 // can look up the real product +
-                                 // re-apply the customer's variant
-                                 // and addon picks. Without this it
-                                 // falls back to a synthetic stub and
-                                 // strips both.
+                                 // Hand reorder the live catalogue so
+                                 // it can rebind variants + addons.
+                                 // Without it: synthetic stub, both
+                                 // get stripped, sad customer.
                                  final prods = context
                                      .read<CatalogueProvider>()
                                      .products
@@ -576,16 +567,10 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Lottie.asset(
-            'assets/animations/empty_search.json',
-            width: 200,
-            repeat: false,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => Icon(
-              Icons.search_off_rounded,
-              size: 96,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          Icon(
+            Icons.search_off_rounded,
+            size: 96,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 14),
           Text('No items found',

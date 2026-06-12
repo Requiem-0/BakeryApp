@@ -82,9 +82,6 @@ class BusinessProvider extends ChangeNotifier {
     if (result.isSuccess && result.data != null) {
       _currentBusiness = result.data;
       _currentState = BusinessLoadState.ready;
-      debugPrint(
-          '🏢 BusinessProvider: loaded "${result.data!.businessName}" — '
-          'logo=${result.data!.logo ?? "(null)"}');
     } else {
       _currentError = result.failure?.message ?? 'Failed to load business.';
       _currentState = BusinessLoadState.error;

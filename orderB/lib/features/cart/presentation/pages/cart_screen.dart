@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
@@ -53,15 +55,12 @@ class CartScreen extends StatelessWidget {
       ),
     );
     if (confirmed != true) return;
-    // Fire-and-forget. Awaiting `cart.clear()` after the dialog popped
-    // kept the caller's BuildContext alive while the cart rebuilt to
-    // empty — on Chrome that left the screen unresponsive until the
-    // server-DELETE call returned. Local clear is synchronous and
-    // already notified listeners; the server sync runs in the
-    // background.
-    cart.clear().catchError((e, st) {
-      debugPrint('🚨 cart.clear failed: $e\n$st');
-    });
+    // Fire-and-forget. Awaiting after the dialog pops keeps the
+    // caller's BuildContext alive while the cart rebuilds to empty;
+    // on Chrome that locks the UI until the server DELETE returns.
+    // Local clear already notified listeners — the rest can finish
+    // whenever the server gets around to it.
+    unawaited(cart.clear());
   }
 
   @override
@@ -70,15 +69,6 @@ class CartScreen extends StatelessWidget {
     final addrProv = context.watch<AddressProvider>();
     final favProv = context.watch<FavouritesProvider>();
     final catProv = context.watch<CatalogueProvider>();
-
-    debugPrint('🛒 CartScreen.build() — cart.items=${cart.items.length}, totalCount=${cart.totalCount}, subtotal=${cart.subtotal}');
-    if (cart.items.isNotEmpty) {
-      for (final item in cart.items) {
-        debugPrint('   • ${item.product.name} x${item.quantity} @ ${item.product.price} (id=${item.product.id})');
-      }
-    } else {
-      debugPrint('   ⚠️ Cart is EMPTY');
-    }
 
     final cartIds = cart.items.map((i) => i.product.id).toSet();
     final suggestions = catProv.products

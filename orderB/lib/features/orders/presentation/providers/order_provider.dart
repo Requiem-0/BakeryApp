@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../../../catalogue/data/models/product.dart';
 import '../../data/models/order.dart';
 import '../../data/repositories/order_repository.dart';
@@ -108,28 +111,7 @@ class OrderProvider extends ChangeNotifier {
   /// know the productId — the order passes through untouched.
   Order _enrichOrder(Order order) {
     final resolver = _productResolver;
-    if (resolver == null) {
-      debugPrint('🟡 _enrichOrder: no productResolver wired; skipping');
-      return order;
-    }
-    // Debug: log every item's addons so we can see whether the backend
-    // hydrated name/price or just sent ids, and whether the catalogue
-    // resolver finds the product. Temporary — yank once the addon
-    // enrichment is verified working end-to-end.
-    for (final item in order.items) {
-      if (item.addons.isEmpty) continue;
-      final product = item.productId != null
-          ? resolver(item.productId!)
-          : null;
-      debugPrint(
-          '🔍 enrich ${order.id} item="${item.name}" price=${item.price} '
-          'qty=${item.qty} productFound=${product != null} '
-          'productAddons=${product?.addons.map((a) => "${a.id}:${a.name}=${a.price}").join(",") ?? "n/a"}');
-      for (final a in item.addons) {
-        debugPrint('   addon: id=${a.id} name="${a.name}" '
-            'price=${a.price} qty=${a.quantity}');
-      }
-    }
+    if (resolver == null) return order;
     var anyChange = false;
     final patched = <OrderItem>[];
     for (final item in order.items) {
@@ -252,10 +234,9 @@ class OrderProvider extends ChangeNotifier {
     if (result.isSuccess) {
       _state = OrderLoadState.ready;
       _lastPlacedOrderId = _extractTicketId(result.data);
-      // Fetch fresh order history asynchronously
-      fetchOrders().catchError((e, st) {
-        debugPrint('🚨 OrderProvider: fetchOrders after placeLiveOrder failed: $e\n$st');
-      });
+      // Refresh history in the background — the user is already on
+      // the success screen, no need to block them on this.
+      unawaited(fetchOrders());
       return true;
     } else {
       _errorMessage = result.failure?.message ?? 'Failed to place order.';

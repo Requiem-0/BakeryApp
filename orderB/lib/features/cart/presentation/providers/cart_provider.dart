@@ -120,17 +120,14 @@ class CartProvider extends ChangeNotifier {
 
   /// Adds [product] to the cart.
   ///
-  /// When the product has variants and the caller doesn't specify
-  /// [variant], the first available variant is auto-picked (mirrors the
-  /// pre-API behaviour of the quick-add button on product cards). When
-  /// [variant] is non-null the caller's pick wins.
+  /// No [variant] passed + the product has variants → auto-picks the
+  /// first one. The detail screen passes the customer's actual pick;
+  /// the home grid's "+" button doesn't bother, hence the autopick.
   ///
-  /// [addons] maps addon `_id` → quantity. Pass an empty map (default)
-  /// when the product has no addons or the user picked none.
+  /// [addons] maps addon `_id` → quantity. Empty by default.
   ///
-  /// Returns true on success. On failure, the optimistic local update is
-  /// rolled back and [errorMessage] is set so the caller can surface a
-  /// toast.
+  /// Returns `false` on server failure, rolls back the optimistic
+  /// add, and stashes the reason in [errorMessage].
   Future<bool> addProduct(
     Product product, {
     VariantItem? variant,
@@ -169,11 +166,9 @@ class CartProvider extends ChangeNotifier {
     // ── Server sync ──────────────────────────────────────────────
     final adminId = product.adminId;
     if (adminId == null || adminId.isEmpty) {
-      // Synthetic product (e.g. reorder fallback) — can't address the
-      // server's catalogue, so leave the optimistic add in place but
-      // don't try to sync.
-      debugPrint(
-          '⚠️ CartProvider.addProduct: skipping API for product without adminId (${product.id})');
+      // Synthetic product (reorder fallback) — server doesn't know
+      // this id. Leave the optimistic add in place; checkout will
+      // refuse it later, which is the right outcome.
       return true;
     }
 

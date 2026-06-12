@@ -65,16 +65,12 @@ class OrderRepository {
     }
   }
 
-  /// POST /api/ticket/
-  /// Creates a live checkout ticket/order on the backend.
+  /// POST /api/ticket/ — places an order.
   ///
-  /// Payment is **cash-on-delivery only** for now — every order goes out
-  /// with `paymentMethod: 'cod'` and `paidStatus: 'pending'`. Online
-  /// payment (Fonepay) + tracking will plug in later; the parameters
-  /// stay overrideable so the wire-up will be one extra arg, not a
-  /// repo rewrite. [deliveryTime] is also overrideable so a scheduled-
-  /// pickup picker can pass a slot; absent that, we send the customer's
-  /// current local time as an ASAP request.
+  /// COD-only for now (paymentMethod / paidStatus defaults), but
+  /// every flag is overrideable so Fonepay drops in as one extra
+  /// arg later. [deliveryTime] same deal — caller passes a slot,
+  /// or we fill in the customer's current local hour.
   Future<ApiResult<Map<String, dynamic>>> createTicket({
     required String businessId,
     required List<Map<String, dynamic>> items,
@@ -109,10 +105,9 @@ class OrderRepository {
     }
   }
 
-  /// Picks the ASAP slot from the current local time. Backend only
-  /// accepts a fixed preset enum (`morning | afternoon | evening |
-  /// night`) — no `asap` value — so we map the hour to whichever
-  /// bucket the customer is in right now.
+  /// Maps the current hour to whichever `preset` bucket the backend
+  /// accepts (morning | afternoon | evening | night). There's no
+  /// `asap` value in the enum, so this is the closest we can do.
   Map<String, dynamic> _defaultDeliveryTime(DateTime now) {
     final h = now.hour;
     final preset = h >= 5 && h < 12

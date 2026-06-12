@@ -12,30 +12,20 @@ abstract final class AppConstants {
   static String currency = 'Rs';
 
   // ── Environment switch ────────────────────────────────────────────────────
-  //
-  // Single toggle controls all three things that need to change between
-  // beta (dev) and prod: the JSON API host, the image host, and the
-  // bakery's business id. Flip [useProd] and every endpoint, image URL,
-  // and product scope follows along — no need to hunt down three
-  // separate constants every time.
+  // One bool, three things switch: API host, image host, business id.
+  // Easier than playing whack-a-mole with three separate constants every
+  // time we move between dev and prod.
 
-  /// Flip to `true` when cutting a prod build, `false` while developing
-  /// against the beta catalogue. Affects all three:
-  ///   • [apiBaseUrl]         (api.beta.order... → api.order...)
-  ///   • [imageHostUrl]       (api.beta.rebuzzpos... → appapi.rebuzzpos...)
-  ///   • [bakeryBusinessId]   ([devBusinessId] → [prodBusinessId])
+  /// `true` for prod builds, `false` for dev. Touches [apiBaseUrl],
+  /// [imageHostUrl], and [bakeryBusinessId] in one shot.
   static const bool useProd = false;
 
-  /// "sakjfhaskj" on beta — the dev catalogue with the richest variant +
-  /// addon coverage: single-axis variants (Americano: Single/Double Shot),
-  /// two-axis variants (Momo: Type × Cooking style → 9 variantItems,
-  /// Shikhar Ice: Type × size), addon-only products (Cafe Lungo + Cheese),
-  /// and variants-plus-addons combos (Simmi, Test, 8848 V). Used by
-  /// [bakeryBusinessId] when [useProd] is false.
-  static const String devBusinessId = '677a7f1bdc28dd3c57afc910';
+  /// Beta's "sakjfhaskj" — the test catalogue with every variant +
+  /// addon shape we needed to debug against (Momo's 2-axis variants,
+  /// Simmi's variant+addon combo, Cafe Lungo's addon-only setup, etc).
+  static const String devBusinessId = '69ccbebf7b052d7ab7e0b435';
 
-  /// Breaking Bread Pvt Ltd — the actual customer the app ships to.
-  /// Used by [bakeryBusinessId] when [useProd] is true.
+  /// Breaking Bread Pvt Ltd — the actual customer.
   static const String prodBusinessId = '65db0f54d0199c9b3dc7ab15';
 
   /// The bakery's `_id` on the rebuzzpos POS backend. This app is a

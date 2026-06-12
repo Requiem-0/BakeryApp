@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../catalogue/presentation/providers/catalogue_provider.dart';
@@ -41,9 +43,9 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
       if (!mounted) return;
       final auth = context.read<AuthProvider>();
       if (auth.isAuthenticated) {
-        context.read<OrderProvider>().fetchOrders().catchError((e, st) {
-          debugPrint('🚨 RecentOrdersScreen: fetchOrders failed: $e\n$st');
-        });
+        // OrderProvider surfaces its own errorMessage; we're just
+        // poking it to load. The unawaited absorbs the future.
+        unawaited(context.read<OrderProvider>().fetchOrders());
       }
     });
   }
@@ -192,18 +194,24 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                             order: order,
                             onTap: () => OrderInvoiceSheet.show(context, order),
                             onReorder: () async {
-                              debugPrint('📋 RecentOrdersScreen reorder tapped: order ${order.id} with ${order.items.length} item(s)');
+                              // Reorder needs the catalogue to match
+                              // variants + addons. If it hasn't
+                              // bootstrapped yet, wait for it; the
+                              // synthetic-stub fallback path is a
+                              // last resort, not a feature.
                               final cat = context.read<CatalogueProvider>();
-                              if (cat.products.isEmpty && cat.productsState != CatalogueLoadState.loading) {
-                                debugPrint('   → Products not loaded yet, loading first...');
+                              if (cat.products.isEmpty &&
+                                  cat.productsState !=
+                                      CatalogueLoadState.loading) {
                                 await cat.loadAllProducts();
-                                debugPrint('   → Products loaded: ${cat.products.length} product(s)');
                               }
                               if (!context.mounted) return;
-                              final prods = cat.products.map(Product.fromApi).toList(growable: false);
-                              debugPrint('   → Calling reorder() with ${prods.length} available product(s)');
-                              context.read<CartProvider>().reorder(order, availableProducts: prods);
-                              debugPrint('   → Navigating to /cart');
+                              final prods = cat.products
+                                  .map(Product.fromApi)
+                                  .toList(growable: false);
+                              context
+                                  .read<CartProvider>()
+                                  .reorder(order, availableProducts: prods);
                               context.push('/cart');
                             },
                           ),

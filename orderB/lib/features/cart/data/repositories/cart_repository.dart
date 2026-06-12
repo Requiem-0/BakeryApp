@@ -31,11 +31,9 @@ class CartRepository {
 
   // ── Writes ────────────────────────────────────────────────────────────────
 
-  /// `POST /api/cart/` — add (or increment) a single item.
-  ///
-  /// The server resolves prices from the product/variant/addon records,
-  /// so client-side `unitPrice` is intentionally not sent. [addons] maps
-  /// addon `_id` → quantity.
+  /// `POST /api/cart/` — add (or increment) a single item. Server
+  /// resolves prices itself, so we don't send `unitPrice`. [addons]
+  /// maps addon `_id` → quantity.
   Future<ApiResult<ApiCart>> addItem({
     required String adminId,
     required String productId,

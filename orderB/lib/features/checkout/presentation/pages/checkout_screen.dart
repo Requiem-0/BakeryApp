@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../features/address/data/models/address.dart';
 import '../../../../features/cart/presentation/providers/cart_provider.dart';
 import '../../../../features/address/presentation/providers/address_provider.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -25,6 +26,113 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacing = false;
+
+  /// Builds the ticket POST payload + fires it. Lives on the State
+  /// so the `mounted` checks after the await are the real ones the
+  /// analyzer trusts, not whatever ambient widget context the inline
+  /// lambda was holding onto.
+  Future<void> _placeOrder(CartProvider cart, Address addr) async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      // Guest browsing the cart hits this; LoginScreen pops back so
+      // they can try again. No order placed yet, no state to clean.
+      context.push('/login');
+      return;
+    }
+
+    setState(() => _isPlacing = true);
+
+    final liveProducts = context.read<CatalogueProvider>().products;
+    final orderProvider = context.read<OrderProvider>();
+
+    final itemsJson = cart.items.map((i) {
+      // Reorder products carry synthetic ids that the server doesn't
+      // know. Name-match against the live catalogue — if there's no
+      // hit, we send the synthetic id and let the server reject it.
+      var productId = i.product.id;
+      if (productId.startsWith('reorder_')) {
+        try {
+          productId = liveProducts
+              .firstWhere((p) =>
+                  p.name.toLowerCase() == i.product.name.toLowerCase())
+              .id;
+        } catch (_) {/* keep synthetic */}
+      }
+
+      // Ticket POST schema, learned by trial and rejection:
+      //   • `preTaxPrice`  → not allowed
+      //   • `variantItem`  → not allowed (cart endpoint accepts it,
+      //                      this one doesn't)
+      //   • `variant: id`  → accepted; sending the label silently
+      //                      no-ops and you get "variant unavailable"
+      //   • `addons`       → array of `{_id, quantity}` objects;
+      //                      Mongoose maps each into an Addon doc.
+      return {
+        'product': productId,
+        'quantity': i.quantity,
+        if (i.variantItemId != null) 'variant': i.variantItemId,
+        'unitPrice': i.unitPrice,
+        'addons': i.addons
+            .map((a) => {'_id': a.addonId, 'quantity': a.quantity})
+            .toList(),
+        'note': '',
+        'discounts': const [],
+      };
+    }).toList();
+
+    // Repo defaults paymentMethod/paidStatus to COD/pending; no
+    // reason to spell them out until Fonepay lands.
+    final success = await orderProvider.placeLiveOrder(
+      businessId: AppConstants.bakeryBusinessId,
+      items: itemsJson,
+      ticketName: 'App Order',
+      deliveryLocation: addr.address,
+    );
+
+    if (!mounted) return;
+    setState(() => _isPlacing = false);
+
+    if (!success) {
+      AppToast.error(
+        context,
+        orderProvider.errorMessage ?? 'Failed to place order.',
+      );
+      return;
+    }
+
+    // Build the snapshot for the success screen BEFORE clearing the
+    // cart — cart.items is about to be empty.
+    final eta = DateFormat('h:mm a')
+        .format(DateTime.now().add(const Duration(minutes: 25)));
+    final serverId = orderProvider.lastPlacedOrderId;
+    final displayId = (serverId != null && serverId.length >= 4)
+        ? '#OD-${serverId.substring(serverId.length - 4).toUpperCase()}'
+        : '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    final placed = PlacedOrder(
+      id: displayId,
+      eta: eta,
+      items: cart.items.map((i) {
+        // Per-unit price the customer ACTUALLY paid (variant +
+        // addons). Using product.price here would show the
+        // cheapest-variant teaser instead of the real charge.
+        final addonPerUnit = i.addons
+            .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
+        return PlacedOrderItem(
+          name: i.product.name,
+          image: i.product.imageUrl ?? i.product.image,
+          quantity: i.quantity,
+          price: i.unitPrice + addonPerUnit,
+          selectedVariants: i.selectedVariants,
+        );
+      }).toList(),
+      total: cart.total,
+      addressLabel: addr.label,
+      addressFull: addr.address,
+    );
+    cart.clear();
+    if (!mounted) return;
+    context.go('/checkout/success', extra: placed);
+  }
 
   // COD is the only supported payment method right now — Fonepay /
   // online payment is on the backlog. Keeping this as a list of one
@@ -273,166 +381,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       label: _isPlacing
                           ? 'Placing Order...'
                           : 'Place Order — ${AppConstants.formatPrice(cart.total)}',
-                      onTap: _isPlacing
-                          ? null
-                          : () async {
-                              // Guests browse the cart + checkout summary
-                              // freely, but placing an actual order needs
-                              // a session. Push /login; LoginScreen pops
-                              // back here on success so the user can tap
-                              // again to place the order.
-                              final auth = context.read<AuthProvider>();
-                              if (!auth.isAuthenticated) {
-                                context.push('/login');
-                                return;
-                              }
-
-                              setState(() => _isPlacing = true);
-
-                              final liveProducts = context.read<CatalogueProvider>().products;
-
-                              final itemsJson = cart.items.map((i) {
-                                String finalProductId = i.product.id;
-                                
-                                // If the ID is synthetic, try to find a matching live product by name
-                                if (finalProductId.startsWith('reorder_')) {
-                                  try {
-                                    final match = liveProducts.firstWhere(
-                                      (p) => p.name.toLowerCase() == i.product.name.toLowerCase(),
-                                    );
-                                    finalProductId = match.id;
-                                    debugPrint('✅ Checkout: resolved reorder ID "${i.product.id}" → live ID "$finalProductId"');
-                                  } catch (_) {
-                                    debugPrint('⚠️ Checkout: could not resolve reorder ID "${i.product.id}" for "${i.product.name}" — keeping synthetic ID');
-                                  }
-                                }
-
-                                // Ticket POST schema gotchas (learned by
-                                // hitting the validator one field at a
-                                // time):
-                                //   - `preTaxPrice` → "not allowed"
-                                //   - `variantItem`  → "not allowed"
-                                //     (the cart endpoint accepts it,
-                                //     ticket endpoint doesn't)
-                                //   - `variant`      → accepted but
-                                //     appears to be silently ignored
-                                //     server-side; for variant-only
-                                //     products (Brownie has base
-                                //     price=0, real prices in
-                                //     variantItems[]) the server can't
-                                //     reconcile our unitPrice and zeros
-                                //     it out anyway. Until the backend
-                                //     adds variant-by-id support, we
-                                //     send the label as a best-effort
-                                //     audit trail and the order parser
-                                //     enriches Rs 0 lines from the
-                                //     catalogue cache on read.
-                                // Ticket POST addon shape: object with
-                                // the ObjectId under `_id` (NOT under
-                                // `addon` — that gave Mongoose a
-                                // "Cast to ObjectId failed at path _id"
-                                // error). Backend uses Joi for input
-                                // validation and Mongoose for the DB
-                                // layer; Joi expects each entry to be
-                                // an object, Mongoose maps the object
-                                // into an Addon doc keyed off `_id`.
-                                return {
-                                  'product': finalProductId,
-                                  'quantity': i.quantity,
-                                  // Try the variant's `_id` under the
-                                  // `variant` key now. We learned:
-                                  //   • `variantItem` → rejected
-                                  //   • `variant` as label → silently
-                                  //     ignored before, now hits
-                                  //     "Variant unavailable" once
-                                  //     addons force a real lookup.
-                                  // Best remaining guess: the field
-                                  // wants the ObjectId, not the label.
-                                  if (i.variantItemId != null)
-                                    'variant': i.variantItemId,
-                                  'unitPrice': i.unitPrice,
-                                  'addons': i.addons
-                                      .map((a) => {
-                                            '_id': a.addonId,
-                                            'quantity': a.quantity,
-                                          })
-                                      .toList(),
-                                  'note': '',
-                                  'discounts': const [],
-                                };
-                              }).toList();
-
-                              // COD-only flow — the repo defaults
-                              // [paymentMethod] to 'cod' and [paidStatus]
-                              // to 'pending', so we just omit them here.
-                              // When Fonepay lands, pass the actual
-                              // selection through.
-                              final orderProvider =
-                                  context.read<OrderProvider>();
-                              final success =
-                                  await orderProvider.placeLiveOrder(
-                                businessId: AppConstants.bakeryBusinessId,
-                                items: itemsJson,
-                                ticketName: 'App Order',
-                                deliveryLocation: addr.address,
-                              );
-
-                              if (!mounted) return;
-                              setState(() => _isPlacing = false);
-
-                              if (success) {
-                                final eta = DateFormat('h:mm a').format(
-                                    DateTime.now()
-                                        .add(const Duration(minutes: 25)));
-                                // Prefer the server-assigned ticket _id;
-                                // display the last 4 chars uppercased so
-                                // the customer sees a clean "#OD-XXXX"
-                                // reference instead of a 24-char hex.
-                                final serverId = orderProvider.lastPlacedOrderId;
-                                final displayId = (serverId != null &&
-                                        serverId.length >= 4)
-                                    ? '#OD-${serverId.substring(serverId.length - 4).toUpperCase()}'
-                                    : '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}';
-                                final order = PlacedOrder(
-                                  id: displayId,
-                                  eta: eta,
-                                  items: cart.items.map((i) {
-                                    // Per-unit price the customer
-                                    // actually paid: the chosen
-                                    // variant's price plus per-unit
-                                    // addon totals. Falling back to
-                                    // i.product.price here would
-                                    // show the cheapest-variant
-                                    // teaser (e.g. Simmi Rs 20)
-                                    // instead of what they were
-                                    // charged (e.g. Medium + Egg +
-                                    // Cheese = Rs 200).
-                                    final addonPerUnit = i.addons.fold<double>(
-                                      0,
-                                      (s, a) => s + a.unitPrice * a.quantity,
-                                    );
-                                    return PlacedOrderItem(
-                                      name: i.product.name,
-                                      image: i.product.imageUrl ?? i.product.image,
-                                      quantity: i.quantity,
-                                      price: i.unitPrice + addonPerUnit,
-                                      selectedVariants: i.selectedVariants,
-                                    );
-                                  }).toList(),
-                                  total: cart.total,
-                                  addressLabel: addr.label,
-                                  addressFull: addr.address,
-                                );
-                                cart.clear();
-                                context.go('/checkout/success', extra: order);
-                              } else {
-                                AppToast.error(
-                                  context,
-                                  orderProvider.errorMessage ??
-                                      'Failed to place order.',
-                                );
-                              }
-                            },
+                      onTap: _isPlacing ? null : () => _placeOrder(cart, addr),
                     ),
                   ),
                 ],

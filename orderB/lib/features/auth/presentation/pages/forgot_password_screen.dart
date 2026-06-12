@@ -61,12 +61,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Row(
                 children: [
-                  const AppBackButton(),
-                  const Spacer(),
+                  AppBackButton(),
+                  Spacer(),
                 ],
               ),
             ),

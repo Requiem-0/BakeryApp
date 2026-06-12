@@ -103,17 +103,13 @@ class Product {
       adminId: api.adminId,
       name: api.name,
       category: api.categoryId ?? '',
-      // Many variant-driven products (Momo, Americano, Simmi, etc.) come
-      // back with `price: 0` at the top level — the real prices live
-      // inside `variants.variantItems[].price`. Use the cheapest available
-      // variant as the displayed anchor so card listings show a real
-      // "from ₹X" instead of "₹0". Falls through to api.price for plain
-      // products and for the edge case where every variant is also 0.
+      // Variant-driven products (Momo, Simmi, etc.) carry `price: 0`
+      // at the top and stash real prices inside variantItems[]. Surface
+      // the cheapest variant so cards show "Rs X" instead of a lie.
       price: _derivePrice(api),
       reviews: api.orderedCount,
-      // Single-codepoint fallback (fork+knife). Avoid emoji that need a
-      // variation selector — some platforms ship without those glyphs and
-      // log "Could not find a set of Noto fonts" warnings.
+      // Single-codepoint emoji. Anything fancier needs a variation
+      // selector and some Android skins don't have those glyphs.
       image: '🍴',
       imageUrl: AppConstants.resolveImageUrl(api.image),
       badge: hasDiscount
@@ -141,15 +137,9 @@ class Product {
     );
   }
 
-  /// Picks a one-line subtitle for cards. Order of preference:
-  ///   1. First sentence/clause of description
-  ///   2. Business name
-  ///   3. Empty string (UI shows the slot blank — layout preserved)
-  /// Picks the price to surface on product cards. Prefers the API's base
-  /// price when set; otherwise falls back to the cheapest *available*
-  /// variant. Returns 0 only when there's genuinely no price anywhere
-  /// (e.g. a not-yet-priced product) so cards don't crash on missing
-  /// data — UI should hide the price tag in that case.
+  /// Surface price for cards. Prefers the API's base, falls back to
+  /// the cheapest available variant. Returns 0 only when the product
+  /// has no price anywhere — UI should hide the price tag in that case.
   static double _derivePrice(ApiProduct api) {
     if (api.price > 0) return api.price.toDouble();
     final apiVariants = api.variants;

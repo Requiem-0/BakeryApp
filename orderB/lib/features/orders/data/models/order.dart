@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import '../../../../core/constants.dart';
 
 /// One add-on attached to an order line, as returned by /my-orders.
@@ -240,10 +239,9 @@ class Order {
       return 0;
     }
 
-    // grandTotal is the final post-charges amount on the rebuzzpos
-    // ticket schema — prefer it over `total`, which has been observed
-    // to carry just one line item's price (no idea why). totalAmount
-    // is a defensive alias older endpoints sometimes use.
+    // `grandTotal` is the canonical post-charges value. `total` has
+    // been caught returning just one line's price; the others are
+    // legacy aliases. We try them in order of "least likely to lie".
     double total = pickNum(const [
       'grandTotal',
       'totalAmount',
@@ -257,28 +255,15 @@ class Order {
       'totalPrice',
     ]);
 
-    // If the server's totals are zero (old tickets, weird state), sum
-    // the line items we parsed. Also override when the server total
-    // looks suspiciously small compared to the items sum — the parser
-    // would otherwise show 120 for a 495 order if `total` came back
-    // wrong.
+    // If the API's total is 0 or smaller than what the line items
+    // add up to, trust the items. Old tickets stored as 0; new ones
+    // sometimes lowball — both get rescued here.
     if (items.isNotEmpty) {
       final itemsSum =
           items.fold<double>(0, (sum, it) => sum + it.price * it.qty);
       if (total == 0 || (itemsSum > 0 && itemsSum > total)) {
         total = itemsSum;
       }
-    }
-
-    if (total == 0) {
-      debugPrint(
-          '🟡 Order ${json['_id']}: total=0 from API and items also sum to 0 — '
-          'likely an old ticket created before the unitPrice POST fix.');
-    } else {
-      debugPrint(
-          '🟢 Order ${json['_id']}: total=$total '
-          '(apiTotal=${json['total']}, apiGrandTotal=${json['grandTotal']}, '
-          'items=${items.map((i) => "${i.name} x${i.qty} @${i.price}").join(", ")})');
     }
 
     final status = (json['status'] ?? json['orderStatus'] ?? 'pending')

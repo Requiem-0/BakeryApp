@@ -9,7 +9,7 @@ import '../../features/catalogue/data/models/product.dart';
 import '../constants.dart';
 import '../storage/logo_cache.dart';
 import 'app_shell.dart';
-import '../../screens/home_screen.dart';
+import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/catalogue/presentation/pages/product_detail_screen.dart';
 import '../../features/cart/presentation/pages/cart_screen.dart';
 import '../../features/checkout/presentation/pages/checkout_screen.dart';
@@ -354,14 +354,9 @@ class _RouteErrorScreen extends StatelessWidget {
   }
 }
 
-/// Centered splash screen shown during auth bootstrap check.
-///
-/// Holds itself on-screen until the BusinessProvider resolves so the
-/// real bakery logo gets a chance to load before dismissal — the router
-/// no longer auto-redirects /splash → /home. A 2s timeout is the
-/// backstop: if the `/businesses/{id}` call hangs or errors, we still
-/// move on rather than stranding the user. The 🥐 emoji + app-name pair
-/// remain as the in-flight fallback so the screen never looks broken.
+/// Splash with a job: wait for auth + business to resolve so the
+/// bakery's actual logo is ready before the user blinks into the
+/// home screen. 4s timer is the parachute for a hung backend.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -373,30 +368,27 @@ class _SplashScreenState extends State<SplashScreen> {
   Timer? _fallbackTimer;
   bool _navigated = false;
 
+  // Cached refs so dispose() doesn't have to do an ancestor lookup
+  // (illegal — the widget is already deactivated by then).
+  BusinessProvider? _business;
+  AuthProvider? _auth;
+
   @override
   void initState() {
     super.initState();
-    // Listen to BOTH providers — either one resolving (or the timer
-    // firing) is enough to re-check the navigate condition. Listening
-    // only to business meant a slow auth bootstrap could leave the
-    // splash stuck after the 2s timer had already given up.
-    context.read<BusinessProvider>().addListener(_maybeNavigate);
-    context.read<AuthProvider>().addListener(_maybeNavigate);
-    // Maximum time we ever pin to the splash. Bumped to 4s after 2s
-    // was tight enough that the business call usually didn't land in
-    // time and the splash dismissed without the bakery logo. Still
-    // short enough that a fully broken backend doesn't strand the user.
+    _business = context.read<BusinessProvider>()..addListener(_maybeNavigate);
+    _auth = context.read<AuthProvider>()..addListener(_maybeNavigate);
     _fallbackTimer = Timer(const Duration(seconds: 4), _maybeNavigate);
-    // Auth or business might already be done by the time this widget
-    // mounts — check once on the next frame.
+    // First-paint check, in case both already resolved before we
+    // even got off the ground.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeNavigate());
   }
 
   @override
   void dispose() {
     _fallbackTimer?.cancel();
-    context.read<BusinessProvider>().removeListener(_maybeNavigate);
-    context.read<AuthProvider>().removeListener(_maybeNavigate);
+    _business?.removeListener(_maybeNavigate);
+    _auth?.removeListener(_maybeNavigate);
     super.dispose();
   }
 
@@ -418,17 +410,10 @@ class _SplashScreenState extends State<SplashScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final business = context.watch<BusinessProvider>().current;
-    // Two-tier fallback for the logo:
-    //   1. The on-disk cached file from LogoCacheService — most
-    //      up-to-date copy (refreshes on every business response).
-    //      Always null on web (no filesystem) and on first-ever
-    //      cold boot before the cache lands.
-    //   2. The asset bundled in the APK / web build at
-    //      assets/branding/bakery_logo.jpg — instant on every
-    //      platform, slightly stale if the bakery changed the logo
-    //      on the backend since the last app release.
-    // The 🥐 emoji is only a final errorBuilder fallback now —
-    // unless the asset bundling itself broke, no one ever sees it.
+    // Logo fallback chain: on-disk cache → bundled asset → 🥐.
+    // The emoji is a safety net you'll only see if the asset
+    // bundling itself broke, in which case you have bigger
+    // problems.
     final cachedLogoFile = context.watch<LogoCacheService>().file;
     final name = (business?.businessName.isNotEmpty == true)
         ? business!.businessName

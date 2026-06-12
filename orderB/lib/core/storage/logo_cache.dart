@@ -59,7 +59,10 @@ class LogoCacheService extends ChangeNotifier {
       _sourceUrl = url;
       notifyListeners();
     } catch (e) {
-      debugPrint('🚨 LogoCacheService.loadCached: $e');
+      assert(() {
+        debugPrint('LogoCacheService.loadCached: $e');
+        return true;
+      }());
     }
   }
 
@@ -88,9 +91,13 @@ class LogoCacheService extends ChangeNotifier {
       _file = f;
       _sourceUrl = url;
       notifyListeners();
-      debugPrint('✅ LogoCacheService: cached logo to ${f.path}');
     } catch (e) {
-      debugPrint('🚨 LogoCacheService.ensureCached failed: $e');
+      // Cache miss is non-fatal — splash falls back to the bundled
+      // asset. No reason to scream about it.
+      assert(() {
+        debugPrint('LogoCacheService.ensureCached: $e');
+        return true;
+      }());
     } finally {
       _refreshing = false;
     }

@@ -76,12 +76,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           children: [
             // Top App Bar/Row with Back Button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Row(
                 children: [
-                  const AppBackButton(),
-                  const Spacer(),
+                  AppBackButton(),
+                  Spacer(),
                 ],
               ),
             ),
