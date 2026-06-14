@@ -7,14 +7,10 @@ import '../../data/models/api_cart.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/repositories/cart_repository.dart';
 
-/// Manages the shopping-cart state.
-///
-/// Authed users get a server-synced cart: local state is the optimistic
-/// reflection of `/api/cart/*` and every mutation round-trips through the
-/// backend. Guests get a pure in-memory cart — same data shape, no API
-/// calls, no persistence across app restarts. The auth listener in
-/// `main.dart` flips between the two modes by calling [bootstrap] on
-/// login and [clear] on logout.
+/// Cart state with two modes: authed users round-trip every mutation
+/// through `/api/cart/*` (local state is optimistic); guests get a pure
+/// in-memory cart that doesn't survive restarts. main.dart's auth
+/// listener flips modes via [bootstrap] / [clear].
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
   final CartRepository _repo;
@@ -23,18 +19,13 @@ class CartProvider extends ChangeNotifier {
   /// API calls for guests (the cart endpoints all 401 without a token).
   bool Function() _isAuthenticated;
 
-  /// Resolves a productId to a fully-populated [Product]. Used when
-  /// hydrating from `GET /my-cart` — the cart response only carries a
-  /// thin product (id, name, image), so we ask the catalogue for the
-  /// full version (with adminId, variantItems, addons) when available.
-  /// Returns null when the catalogue hasn't loaded that product yet, in
-  /// which case we fall back to a thin local Product.
+  /// Hydrates a productId to a full [Product] from the catalogue, since
+  /// `GET /my-cart` only returns thin (id/name/image) product data.
+  /// Null when the catalogue hasn't loaded that product yet.
   Product? Function(String productId)? _productResolver;
 
-  /// Pulls the per-order service charge (baking/packaging/etc.) from the
-  /// active business config. Lets the cart's total reflect what the
-  /// backend will actually charge instead of a hardcoded number. Returns
-  /// 0 when no business has loaded yet (fee just won't show until then).
+  /// Reads the per-order service charge from the live business config
+  /// instead of hardcoding. 0 until the business loads.
   double Function()? _serviceChargeResolver;
 
   bool _isLoading = false;
@@ -118,16 +109,10 @@ class CartProvider extends ChangeNotifier {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
-  /// Adds [product] to the cart.
-  ///
-  /// No [variant] passed + the product has variants → auto-picks the
-  /// first one. The detail screen passes the customer's actual pick;
-  /// the home grid's "+" button doesn't bother, hence the autopick.
-  ///
-  /// [addons] maps addon `_id` → quantity. Empty by default.
-  ///
-  /// Returns `false` on server failure, rolls back the optimistic
-  /// add, and stashes the reason in [errorMessage].
+  /// Adds [product] to the cart. Auto-picks the first variant when
+  /// [variant] is null but the product has variants (home-grid "+"
+  /// flow). [addons] maps addon id → qty. Returns false + rolls back
+  /// the optimistic add on server failure; reason in [errorMessage].
   Future<bool> addProduct(
     Product product, {
     VariantItem? variant,
@@ -178,7 +163,6 @@ class CartProvider extends ChangeNotifier {
       variantItemId: effectiveVariant?.id,
       quantity: quantity,
       addons: addons,
-      discountIds: product.discountIds,
     );
     if (result.isFailure) {
       _restore(snapshot);
@@ -220,17 +204,11 @@ class CartProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Updates the quantity of the line at [index] directly. Required
-  /// when the cart contains two lines that share a product id but
-  /// carry different variants/addons — going through [updateById]
-  /// would always hit the first match by product id, hijacking the
-  /// wrong line.
-  ///
-  /// Server sync still goes through `PUT /cart/` which keys by
-  /// product id, so the server may merge variant-distinct lines into
-  /// a single quantity. The local state stays correct; checkout
-  /// re-sends the right per-line variants and addons so the ticket
-  /// is accurate.
+  /// Targets a specific line by index — needed when two cart lines share
+  /// a product id but carry different variants/addons ([updateById]
+  /// can't disambiguate). Server `PUT /cart/` keys by product id, so
+  /// it may merge variant-distinct lines on its side; checkout re-sends
+  /// per-line variants and addons so the ticket stays accurate.
   Future<bool> updateQuantity(int index, int qty) async {
     if (index < 0 || index >= _items.length) return false;
 
@@ -331,14 +309,9 @@ class CartProvider extends ChangeNotifier {
       }
 
       if (match != null) {
-        // Re-pick the variant the customer originally chose. The
-        // ticket endpoint stores `unitPrice` (the variant's price) on
-        // the line, so matching by price is the most reliable signal
-        // — the order itself doesn't round-trip the variant id or
-        // label in any field we can read. When multiple variants
-        // share the same price (e.g. Brownie's 4 flavors all at Rs
-        // 375), we accept the first hit; the customer can re-pick
-        // before checkout if it matters.
+        // Match the original variant by price — ticket doesn't round-trip
+        // the variant id. Ties (same price across variants) take the first
+        // hit; the customer can re-pick before checkout.
         VariantItem? variantPick;
         if (oi.price > 0) {
           for (final v in match.variantItems) {
@@ -349,11 +322,8 @@ class CartProvider extends ChangeNotifier {
           }
         }
 
-        // Re-pick addons. The backend stores fresh _ids for embedded
-        // subdocuments, so the order's addon id doesn't match the
-        // catalogue's — same gotcha we hit in OrderProvider
-        // enrichment. Fall back to a normalized name match to bridge
-        // the gap.
+        // Backend regenerates subdoc _ids per order, so addon ids won't
+        // match the catalogue's. Match by normalised name instead.
         final addonsMap = <String, int>{};
         for (final orderAddon in oi.addons) {
           if (orderAddon.name.isEmpty) continue;
@@ -366,9 +336,7 @@ class CartProvider extends ChangeNotifier {
           }
         }
 
-        // Fire-and-forget — addProduct returns a Future but reorder is
-        // sync from the caller's perspective. Errors are surfaced via
-        // errorMessage and notifyListeners.
+        // Fire-and-forget; errors surface via errorMessage + notify.
         addProduct(
           match,
           quantity: oi.qty,

@@ -24,6 +24,36 @@ class OrderItemAddon {
       );
 }
 
+/// A discount rule that fired on an order line. Carries the metadata
+/// (name + rate + type) so receipts can show "Saved Rs X via [name]".
+class OrderItemDiscount {
+  /// Backend's catalogue id for the discount rule.
+  final String id;
+  final String name;
+
+  /// "percentage" or "flat" — backend's own enum.
+  final String type;
+
+  /// For percentage: 10 means 10%. For flat: the absolute amount.
+  final double rate;
+
+  const OrderItemDiscount({
+    required this.id,
+    this.name = '',
+    this.type = '',
+    this.rate = 0,
+  });
+
+  factory OrderItemDiscount.fromJson(Map<String, dynamic> json) {
+    return OrderItemDiscount(
+      id: (json['discount'] ?? json['_id'] ?? json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      type: (json['type'] ?? '').toString(),
+      rate: ((json['rate'] as num?) ?? 0).toDouble(),
+    );
+  }
+}
+
 class OrderItem {
   final String name;
 
@@ -38,6 +68,25 @@ class OrderItem {
   /// Empty list for items that have none.
   final List<OrderItemAddon> addons;
 
+  /// Tax charged on this line (0 when not taxable / not applied). Summed
+  /// across items to drive the order-level "Tax" row.
+  final double taxAmount;
+  final bool taxApplied;
+
+  /// Discount in absolute currency knocked off this line (17.9 = Rs 17.9
+  /// off). Separate from the discount metadata (name/rate/type) — that
+  /// lives in [discountsApplied] for receipt-style display.
+  final double discount;
+
+  /// Customer note attached at checkout (e.g. "less spicy"). Empty when
+  /// none was set.
+  final String note;
+
+  /// Discount metadata as the backend returned it — one entry per
+  /// discount rule that fired on this line. Useful for "Saved Rs X via
+  /// [name]" rows in the receipt.
+  final List<OrderItemDiscount> discountsApplied;
+
   const OrderItem({
     required this.name,
     required this.image,
@@ -46,6 +95,11 @@ class OrderItem {
     this.selectedVariants = const {},
     this.productId,
     this.addons = const [],
+    this.taxAmount = 0,
+    this.taxApplied = false,
+    this.discount = 0,
+    this.note = '',
+    this.discountsApplied = const [],
   });
 
   /// Per-unit total including addons. `price` alone is just the variant
@@ -98,13 +152,9 @@ class OrderItem {
           .map((k, v) => MapEntry(k.toString(), v.toString()));
     }
 
-    // Addon entries come back as objects with both the catalogue id
-    // (under `addon` or `addonId`) AND a Mongoose-generated subdoc
-    // `_id`. We want the catalogue id so enrichment can match against
-    // product.addons — `_id` would only match other subdocs of the
-    // same line. Field priority reflects that: catalogue keys first,
-    // subdoc id last as a fallback (bare strings handled too).
-    // Price field varies (`price` on tickets, `unitPrice` on cart).
+    // Prefer the catalogue id (`addon` / `addonId`) over the
+    // Mongoose subdoc `_id` — only the catalogue id matches against
+    // product.addons during enrichment.
     final List<OrderItemAddon> addons = [];
     final rawAddons = json['addons'];
     if (rawAddons is List) {
@@ -127,6 +177,16 @@ class OrderItem {
       }
     }
 
+    final discountsApplied = <OrderItemDiscount>[];
+    final rawDiscounts = json['discounts'];
+    if (rawDiscounts is List) {
+      for (final raw in rawDiscounts) {
+        if (raw is Map<String, dynamic>) {
+          discountsApplied.add(OrderItemDiscount.fromJson(raw));
+        }
+      }
+    }
+
     return OrderItem(
       name: name,
       image: image,
@@ -135,6 +195,11 @@ class OrderItem {
       selectedVariants: variants,
       productId: prodId,
       addons: addons,
+      taxAmount: ((json['taxAmount'] as num?) ?? 0).toDouble(),
+      taxApplied: (json['taxApplied'] as bool?) ?? false,
+      discount: ((json['discount'] as num?) ?? 0).toDouble(),
+      note: (json['note'] ?? '').toString(),
+      discountsApplied: discountsApplied,
     );
   }
 
@@ -147,6 +212,11 @@ class OrderItem {
         selectedVariants: selectedVariants,
         productId: productId,
         addons: addons ?? this.addons,
+        taxAmount: taxAmount,
+        taxApplied: taxApplied,
+        discount: discount,
+        note: note,
+        discountsApplied: discountsApplied,
       );
 }
 
@@ -163,8 +233,36 @@ class Order {
   final List<OrderItem> items;
   final double total;
 
-  /// Status string exactly as returned by the API ("pending", "delivered", etc.)
+  /// Order lifecycle status as returned by the API ("Pending", "Delivered",
+  /// etc.). Today the backend rarely populates this — see [displayStatus]
+  /// for the UI's actual signal.
   final String status;
+
+  /// Payment state — "paid" or "unpaid". Default for newly-placed cash
+  /// orders is "unpaid"; merchant flips it from rebuzzpos POS.
+  final String paidStatus;
+
+  /// True once the merchant has closed/checked out the ticket on the POS.
+  /// Independent of [paidStatus] in principle.
+  final bool checkedOut;
+
+  /// Human-readable order number from the backend (e.g. 295). Null for
+  /// older orders / endpoints that don't return it.
+  final int? invoice;
+
+  /// "cash" today, "fonepay" / etc. later. Empty when not returned.
+  final String paymentMethod;
+
+  /// Address-record id the backend stored on the order. Resolves to a
+  /// full Address by hitting the address repo if needed.
+  final String? deliveryLocationId;
+
+  /// Order-level discount in absolute currency (sum of all line discounts
+  /// the backend pre-aggregated). Zero when nothing fired.
+  final double discount;
+
+  /// Sum of per-line `taxAmount`s — surfaced as a "Tax" row when > 0.
+  final double tax;
 
   const Order({
     required this.id,
@@ -173,6 +271,13 @@ class Order {
     required this.total,
     required this.status,
     this.createdAt,
+    this.paidStatus = 'unpaid',
+    this.checkedOut = false,
+    this.invoice,
+    this.paymentMethod = '',
+    this.deliveryLocationId,
+    this.discount = 0,
+    this.tax = 0,
   });
 
   Order copyWith({List<OrderItem>? items, double? total}) => Order(
@@ -182,7 +287,24 @@ class Order {
         items: items ?? this.items,
         total: total ?? this.total,
         status: status,
+        paidStatus: paidStatus,
+        checkedOut: checkedOut,
+        invoice: invoice,
+        paymentMethod: paymentMethod,
+        deliveryLocationId: deliveryLocationId,
+        discount: discount,
+        tax: tax,
       );
+
+  /// Falls back to payment state when the backend leaves [status] as
+  /// the default "Pending" — which is the case for most orders today.
+  /// Real lifecycle states ("Delivered", "Cancelled", etc.) win when
+  /// the backend sends them.
+  String get displayStatus {
+    if (status != 'Pending') return status;
+    if (checkedOut && paidStatus == 'paid') return 'Completed';
+    return paidStatus == 'paid' ? 'Paid' : 'Unpaid';
+  }
 
   /// Returns false for ghost / malformed orders where the backend returned a
   /// ticket whose product references were not populated (all items fall back
@@ -249,12 +371,8 @@ class Order {
       }
     }
 
-    // The /ticket endpoints aren't fully consistent on the total field
-    // across rebuzzpos environments — different keys carry the grand
-    // total in different responses. Walk the most common ones first;
-    // if all of them are missing or zero, fall back to summing the
-    // items we just parsed so cards never show "Rs 0" when there's
-    // clearly a real order behind them.
+    // /ticket endpoints disagree on which key carries the order total.
+    // Try the canonical names in order, fall back to summing items.
     double pickNum(List<dynamic> keys) {
       for (final k in keys) {
         final v = json[k];
@@ -263,9 +381,6 @@ class Order {
       return 0;
     }
 
-    // `grandTotal` is the canonical post-charges value. `total` has
-    // been caught returning just one line's price; the others are
-    // legacy aliases. We try them in order of "least likely to lie".
     double total = pickNum(const [
       'grandTotal',
       'totalAmount',
@@ -279,9 +394,8 @@ class Order {
       'totalPrice',
     ]);
 
-    // If the API's total is 0 or smaller than what the line items
-    // add up to, trust the items. Old tickets stored as 0; new ones
-    // sometimes lowball — both get rescued here.
+    // Backend sometimes returns 0 or a single-line value. Trust the
+    // sum when it's bigger.
     if (items.isNotEmpty) {
       final itemsSum =
           items.fold<double>(0, (sum, it) => sum + it.price * it.qty);
@@ -294,6 +408,23 @@ class Order {
         .toString()
         .toLowerCase();
 
+    final paidStatus = (json['paidStatus'] ?? 'unpaid').toString().toLowerCase();
+    final checkedOut = (json['checkedOut'] as bool?) ?? false;
+    final invoice = (json['invoice'] as num?)?.toInt();
+    final paymentMethod =
+        (json['paymentMethod'] ?? '').toString().toLowerCase();
+
+    // deliveryLocation comes back as an id string on POST/my-orders. The
+    // detail screen can resolve it to a full address via the address
+    // repo when needed.
+    final deliveryLocationId = json['deliveryLocation'] is String
+        ? json['deliveryLocation'] as String
+        : null;
+
+    final orderDiscount = ((json['discount'] as num?) ?? 0).toDouble();
+    final taxTotal =
+        items.fold<double>(0, (sum, it) => sum + it.taxAmount * it.qty);
+
     return Order(
       id: '#${id.length > 6 ? id.substring(id.length - 6).toUpperCase() : id.toUpperCase()}',
       date: date,
@@ -301,6 +432,13 @@ class Order {
       items: items,
       total: total,
       status: _normaliseStatus(status),
+      paidStatus: paidStatus,
+      checkedOut: checkedOut,
+      invoice: invoice,
+      paymentMethod: paymentMethod,
+      deliveryLocationId: deliveryLocationId,
+      discount: orderDiscount,
+      tax: taxTotal,
     );
   }
 

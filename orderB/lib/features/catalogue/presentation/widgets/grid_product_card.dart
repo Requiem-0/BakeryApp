@@ -50,6 +50,32 @@ class GridProductCard extends StatelessWidget {
                   height: 100,
                 ),
 
+                // Discount badge — top-left, only when the product has
+                // an applyEverytime rule the backend will honor.
+                if (product.autoDiscount != null)
+                  Positioned(
+                    top: 14,
+                    left: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: colors.error,
+                        borderRadius:
+                            BorderRadius.circular(AppDecorations.radiusXS),
+                      ),
+                      child: Text(
+                        product.autoDiscount!.badgeLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onError,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 7,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+
                 // Favourite button
                 Positioned(
                   top: 8,

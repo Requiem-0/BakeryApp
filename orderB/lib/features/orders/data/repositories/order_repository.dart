@@ -65,19 +65,16 @@ class OrderRepository {
     }
   }
 
-  /// POST /api/ticket/ — places an order.
-  ///
-  /// COD-only for now (paymentMethod / paidStatus defaults), but
-  /// every flag is overrideable so Fonepay drops in as one extra
-  /// arg later. [deliveryTime] same deal — caller passes a slot,
-  /// or we fill in the customer's current local hour.
+  /// POST /api/ticket/ — places an order. Cash-only today;
+  /// 'cod'/'pending' get rejected by the backend enum. [deliveryTime]
+  /// falls back to the current local hour when caller passes none.
   Future<ApiResult<Map<String, dynamic>>> createTicket({
     required String businessId,
     required List<Map<String, dynamic>> items,
     required String ticketName,
     required String deliveryLocation,
-    String paymentMethod = 'cod',
-    String paidStatus = 'pending',
+    String paymentMethod = 'cash',
+    String paidStatus = 'unpaid',
     Map<String, dynamic>? deliveryTime,
   }) async {
     try {
@@ -105,9 +102,9 @@ class OrderRepository {
     }
   }
 
-  /// Maps the current hour to whichever `preset` bucket the backend
-  /// accepts (morning | afternoon | evening | night). There's no
-  /// `asap` value in the enum, so this is the closest we can do.
+  /// Buckets the current hour into the backend's preset enum
+  /// (morning | afternoon | evening | night). No `asap` option exists,
+  /// so the next bucket is the closest we can do.
   Map<String, dynamic> _defaultDeliveryTime(DateTime now) {
     final h = now.hour;
     final preset = h >= 5 && h < 12

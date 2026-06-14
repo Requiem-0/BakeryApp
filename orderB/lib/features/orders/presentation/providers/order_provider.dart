@@ -205,18 +205,16 @@ class OrderProvider extends ChangeNotifier {
   String? _lastPlacedOrderId;
   String? get lastPlacedOrderId => _lastPlacedOrderId;
 
-  /// Places a live ticket checkout on the backend.
-  ///
-  /// [paymentMethod] and [paidStatus] default to the COD flow ('cod' /
-  /// 'pending') — callers only need to pass them when wiring up another
-  /// payment provider (Fonepay etc).
+  /// POSTs a ticket to `/api/ticket/`. Defaults to cash/unpaid — the
+  /// only enum values the backend currently accepts. Override when
+  /// wiring Fonepay or another payment provider.
   Future<bool> placeLiveOrder({
     required String businessId,
     required List<Map<String, dynamic>> items,
     required String ticketName,
     required String deliveryLocation,
-    String paymentMethod = 'cod',
-    String paidStatus = 'pending',
+    String paymentMethod = 'cash',
+    String paidStatus = 'unpaid',
   }) async {
     _state = OrderLoadState.loading;
     _errorMessage = null;

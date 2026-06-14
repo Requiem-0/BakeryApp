@@ -62,7 +62,8 @@ class ProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  // Product image (network with emoji fallback)
+                  // Product image (network with emoji fallback) +
+                  // discount badge when an applyEverytime rule is set.
                   Stack(
                     children: [
                       ProductImageBox(
@@ -72,6 +73,29 @@ class ProductCard extends StatelessWidget {
                         width: 90,
                         height: 90,
                       ),
+                      if (product.autoDiscount != null)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: colors.error,
+                              borderRadius: BorderRadius.circular(
+                                  AppDecorations.radiusXS),
+                            ),
+                            child: Text(
+                              product.autoDiscount!.badgeLabel,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onError,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 7,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(width: 16),

@@ -30,7 +30,7 @@ class PaymentMethodsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 children: [
                   // Decorative until the backend exposes saved cards —
-                  // checkout itself is COD-only right now, so there's
+                  // checkout itself is cash-only right now, so there's
                   // nothing to manage. Swap these tiles for API-backed
                   // entries when online payment (Fonepay) lands.
                   const _PaymentCard(

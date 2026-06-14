@@ -92,7 +92,7 @@ class _OrderCardState extends State<OrderCard> {
                 ),
               ),
               const SizedBox(width: 6),
-              _StatusBadge(status: order.status, featured: featured),
+              _StatusBadge(status: order.displayStatus, featured: featured),
             ],
           ),
           const SizedBox(height: 10),
@@ -206,12 +206,15 @@ class _StatusBadge extends StatelessWidget {
       switch (status) {
         case 'Delivered':
         case 'Picked Up':
+        case 'Paid':
+        case 'Completed':
           bg = colors.primary.withValues(alpha: 0.1);
           fg = colors.primary;
         case 'Cancelled':
           bg = colors.error.withValues(alpha: 0.1);
           fg = colors.error;
         default:
+          // Pending / Unpaid / Processing — secondary (amber-ish)
           bg = colors.secondary.withValues(alpha: 0.15);
           fg = colors.secondary;
       }

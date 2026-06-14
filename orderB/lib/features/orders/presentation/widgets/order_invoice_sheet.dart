@@ -64,7 +64,7 @@ class OrderInvoiceSheet extends StatelessWidget {
                   color: colors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(order.status,
+                child: Text(order.displayStatus,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.primary,
                       fontWeight: FontWeight.w600,

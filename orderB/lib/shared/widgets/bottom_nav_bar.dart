@@ -18,7 +18,9 @@ class AppBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final cartCount = context.watch<CartProvider>().totalCount;
+    // Scope to the count only — watch() would rebuild the nav on every
+    // cart mutation (qty, loading, error), not just count changes.
+    final cartCount = context.select<CartProvider, int>((c) => c.totalCount);
 
     return Container(
       decoration: BoxDecoration(

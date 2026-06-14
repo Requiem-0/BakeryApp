@@ -1,27 +1,20 @@
 import '../../../../core/constants.dart';
 import 'api_product.dart';
 
-/// UI-facing product model. Holds the fields the existing widgets render.
-///
-/// Most consumers should construct via [Product.fromApi] which adapts the
-/// canonical [ApiProduct] (live API shape) into this UI-friendly form.
-/// Once the legacy mock data path is fully retired, this class merges
-/// with [ApiProduct] and goes away.
+/// UI-facing product model. Construct via [Product.fromApi] to adapt
+/// from the live [ApiProduct] shape. Will merge with [ApiProduct] once
+/// the legacy mock path is retired.
 class Product {
   final String id;
 
-  /// The business owner's ID. Required when POSTing this product to the
-  /// cart endpoint (`POST /api/cart/` expects `adminId` per item). Null
-  /// for synthetic/legacy products created without an API origin (e.g.
-  /// the reorder fallback path); the cart layer guards against that case.
+  /// Owner's id — required by `POST /api/cart/`. Null on synthetic
+  /// products (reorder fallback); cart layer guards that case.
   final String? adminId;
 
   final String name;
 
-  /// Either a category label ("breads") for legacy mock data, or a Mongo
-  /// ObjectId string for live API products. The home screen filter uses
-  /// equality against the active category-pill ID, which matches both
-  /// shapes naturally.
+  /// Category label ("breads") for mock data, or Mongo ObjectId for
+  /// live products. Home filter uses equality so both shapes work.
   final String category;
 
   final double price;
@@ -40,24 +33,22 @@ class Product {
   final List<String> tags;
   final String time;
 
-  /// Picker model — groups of selectable options (e.g. "Type": Steam,
-  /// Fried, Chilly). Use this to render the variant chooser UI.
+  /// Picker model: option groups for the variant chooser UI.
   final List<VariantGroup> variants;
 
-  /// Lookup table — every concrete variant combination carries its own
-  /// `_id` and resolved price. After the user picks labels via [variants],
-  /// resolve the chosen [VariantItem] via [findVariantItem] to get the
-  /// `_id` the cart endpoint requires.
+  /// Lookup table for resolving a customer's picks → concrete variant
+  /// `_id`. Use [findVariantItem] to map picked labels → the id that
+  /// `POST /cart/` requires.
   final List<VariantItem> variantItems;
 
   /// Optional add-ons (e.g. Egg, Cheese) the customer can attach to a
   /// product line. Empty list when the product has none.
   final List<ProductAddon> addons;
 
-  /// Discount `_id`s the backend has bound to this product. We forward
-  /// these to the cart endpoint on add — discounted products can't be
-  /// silently checked out without them or the line gets rejected.
-  final List<String> discountIds;
+  /// The `applyEverytime` discount backend will auto-apply, or null.
+  /// Drives the "10% OFF" badge. Selective discounts (coupon codes)
+  /// are intentionally excluded.
+  final ProductDiscount? autoDiscount;
 
   const Product({
     required this.id,
@@ -75,7 +66,7 @@ class Product {
     this.variants = const [],
     this.variantItems = const [],
     this.addons = const [],
-    this.discountIds = const [],
+    this.autoDiscount,
   });
 
   /// True when this product needs the customer to choose a variant before
@@ -101,7 +92,7 @@ class Product {
   /// Fields the API doesn't supply (reviews, badge, time, emoji) fall
   /// back to safe defaults so existing UI keeps rendering.
   factory Product.fromApi(ApiProduct api) {
-    final hasDiscount = api.discounts.isNotEmpty;
+    final autoDiscount = _resolveAutoDiscount(api);
     final isPopular = api.orderedCount >= 25;
     final apiVariants = api.variants;
     return Product(
@@ -109,18 +100,14 @@ class Product {
       adminId: api.adminId,
       name: api.name,
       category: api.categoryId ?? '',
-      // Variant-driven products (Momo, Simmi, etc.) carry `price: 0`
-      // at the top and stash real prices inside variantItems[]. Surface
-      // the cheapest variant so cards show "Rs X" instead of a lie.
+      // Variant-only products carry `price: 0` at the top; surface the
+      // cheapest available variant so cards show a real number.
       price: _derivePrice(api),
       reviews: api.orderedCount,
-      // Single-codepoint emoji. Anything fancier needs a variation
-      // selector and some Android skins don't have those glyphs.
       image: '🍴',
       imageUrl: AppConstants.resolveImageUrl(api.image),
-      badge: hasDiscount
-          ? 'Sale'
-          : (isPopular ? 'Popular' : null),
+      // Skip the legacy text badge when autoDiscount has its own pill.
+      badge: autoDiscount == null && isPopular ? 'Popular' : null,
       description: api.description ?? '',
       tags: [
         if (api.isVeg) 'Vegan',
@@ -140,8 +127,26 @@ class Product {
           .where((a) => a.id.isNotEmpty)
           .map(ProductAddon.fromApi)
           .toList(),
-      discountIds: api.discounts,
+      autoDiscount: autoDiscount,
     );
+  }
+
+  /// Returns the first enabled discount the backend will auto-apply
+  /// for this product, or null. Selective discounts (coupon codes)
+  /// don't qualify — those require customer input we don't surface.
+  static ProductDiscount? _resolveAutoDiscount(ApiProduct api) {
+    if (api.discountType != 'applyEverytime') return null;
+    for (final d in api.discounts) {
+      if (!d.isEnabled) continue;
+      if (d.rate == null || d.rate! <= 0) continue;
+      return ProductDiscount(
+        id: d.id,
+        name: d.name ?? '',
+        type: d.type ?? 'percentage',
+        rate: d.rate!.toDouble(),
+      );
+    }
+    return null;
   }
 
   /// Surface price for cards. Prefers the API's base, falls back to
@@ -185,20 +190,17 @@ class VariantGroup {
       VariantGroup(title: api.title, options: api.values);
 }
 
-/// A concrete, addressable variant of a product — the thing the cart
-/// endpoint accepts as `variantItem`. Maps 1:1 to the
-/// `variants.variantItems[]` array in the products API response.
+/// A concrete variant — the `variantItem` id the cart/ticket endpoints
+/// accept. Maps 1:1 to `variants.variantItems[]` in the products API.
 class VariantItem {
   final String id;
 
-  /// The user-visible labels for this variant (e.g. ["Steam"] for a
-  /// single-group product, or ["Large", "Hot"] for multi-group). Order
-  /// matches the [VariantGroup] order in the product's `variants` list.
+  /// User-visible labels (e.g. ["Steam"] or ["Large", "Hot"]). Order
+  /// matches the parent product's [VariantGroup] order.
   final List<String> optionValues;
 
-  /// Server-resolved price for this variant. Server uses this as the
-  /// authoritative price; client-side price overrides are ignored on
-  /// the POST /cart/ path.
+  /// Server-authoritative price. Client values are ignored by the
+  /// cart/ticket endpoints.
   final double price;
 
   final bool isAvailable;
@@ -240,4 +242,32 @@ class ProductAddon {
         name: api.name ?? 'Addon',
         price: (api.price ?? 0).toDouble(),
       );
+}
+
+/// A discount the backend will auto-apply to a product. UI-side
+/// projection of the relevant fields from [ApiProductDiscount] — just
+/// the bits the badge needs.
+class ProductDiscount {
+  final String id;
+  final String name;
+
+  /// "percentage" or "flat".
+  final String type;
+  final double rate;
+
+  const ProductDiscount({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.rate,
+  });
+
+  /// Short label for the corner badge: "10% OFF" / "Rs 50 OFF".
+  String get badgeLabel {
+    if (type == 'percentage') {
+      final r = rate % 1 == 0 ? rate.toStringAsFixed(0) : rate.toString();
+      return '$r% OFF';
+    }
+    return 'Rs ${rate.toStringAsFixed(0)} OFF';
+  }
 }

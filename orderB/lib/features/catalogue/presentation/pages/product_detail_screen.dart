@@ -426,6 +426,28 @@ class _HeroImage extends StatelessWidget {
                       fontWeight: FontWeight.w600)),
             ),
           ),
+        if (product.autoDiscount != null)
+          Positioned(
+            bottom: 16,
+            right: 20,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                product.autoDiscount!.badgeLabel,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onError,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 9,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

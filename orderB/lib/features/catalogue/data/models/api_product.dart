@@ -1,11 +1,7 @@
 import '../../../../core/utils/json_helpers.dart';
 
-/// Product as returned by /api/products/* endpoints.
-///
-/// Named `ApiProduct` to avoid colliding with the legacy wishful-shape
-/// `Product` in product.dart, which is still consumed by the mock-data UI.
-/// When the UI is rewritten against the live API, the legacy model goes
-/// away and this gets renamed to `Product`.
+/// Product as returned by /api/products/*. Distinct from `Product`
+/// (the UI-facing model) until the mock-data path is retired.
 class ApiProduct {
   final String id;
   final String name;
@@ -41,11 +37,12 @@ class ApiProduct {
   final dynamic compositeItems;
   final bool? usesCompositeItems;
 
-  // Discount IDs attached to this product. Backend has been seen
+  // Discount rules attached to this product. Backend has been seen
   // returning these as bare id strings on some endpoints and as
-  // full populated objects on others; [_parseDiscountIds] handles
-  // both and just keeps the `_id`s.
-  final List<String> discounts;
+  // full populated objects on others; [_parseDiscounts] accepts both
+  // and normalizes to [ApiProductDiscount] — id only on the bare-
+  // string shape, full metadata on the populated shape.
+  final List<ApiProductDiscount> discounts;
   final String? discountType;
 
   // Business / admin metadata.
@@ -119,7 +116,7 @@ class ApiProduct {
         lowStock: json['lowStock'] as num?,
         compositeItems: json['compositeItems'],
         usesCompositeItems: json['usesCompositeItems'] as bool?,
-        discounts: _parseDiscountIds(json['discounts']),
+        discounts: _parseDiscounts(json['discounts']),
         discountType: json['discountType'] as String?,
         businessId: json['businessId'] as String?,
         businessName: json['businessName'] as String?,
@@ -159,7 +156,7 @@ class ApiProduct {
         if (compositeItems != null) 'compositeItems': compositeItems,
         if (usesCompositeItems != null)
           'usesCompositeItems': usesCompositeItems,
-        'discounts': discounts,
+        'discounts': discounts.map((d) => d.toJson()).toList(),
         if (discountType != null) 'discountType': discountType,
         if (businessId != null) 'businessId': businessId,
         if (businessName != null) 'businessName': businessName,
@@ -170,24 +167,67 @@ class ApiProduct {
         if (variants != null) 'variants': variants!.toJson(),
       };
 
-  /// Pulls discount `_id`s out of whatever shape the backend sent.
-  /// Some endpoints return bare id strings, others return populated
-  /// objects with `{_id, name, rate, type, ...}`. Either way we only
-  /// need the id — the cart endpoint wants those passed back when
-  /// adding a discounted product, otherwise the line gets rejected.
-  static List<String> _parseDiscountIds(dynamic raw) {
+  /// Normalizes the `discounts` array — accepts bare id strings AND
+  /// populated objects, returns full [ApiProductDiscount]s either way
+  /// (with only the id populated for the bare-string shape).
+  static List<ApiProductDiscount> _parseDiscounts(dynamic raw) {
     if (raw is! List) return const [];
-    final result = <String>[];
+    final result = <ApiProductDiscount>[];
     for (final entry in raw) {
       if (entry is String && entry.isNotEmpty) {
-        result.add(entry);
-      } else if (entry is Map) {
-        final id = (entry['_id'] ?? entry['id'])?.toString();
-        if (id != null && id.isNotEmpty) result.add(id);
+        result.add(ApiProductDiscount(id: entry));
+      } else if (entry is Map<String, dynamic>) {
+        result.add(ApiProductDiscount.fromJson(entry));
       }
     }
     return result;
   }
+}
+
+/// A discount rule attached to a product on `/api/products/*`.
+///
+/// Carries the metadata the UI needs to render a "10% OFF" / "Rs 50 off"
+/// badge — the cart endpoint itself ignores client-sent discounts and
+/// auto-applies them server-side from the same rule, so this object is
+/// display-only.
+class ApiProductDiscount {
+  final String id;
+  final String? name;
+
+  /// "percentage" or "flat". Empty when the backend returned a bare id.
+  final String? type;
+
+  /// For percentage: 10 means 10%. For flat: the absolute amount.
+  final num? rate;
+
+  /// False when the admin paused the rule. We still parse it but the
+  /// badge / cart auto-apply should ignore disabled entries.
+  final bool isEnabled;
+
+  const ApiProductDiscount({
+    required this.id,
+    this.name,
+    this.type,
+    this.rate,
+    this.isEnabled = true,
+  });
+
+  factory ApiProductDiscount.fromJson(Map<String, dynamic> json) =>
+      ApiProductDiscount(
+        id: (json['_id'] ?? json['id'] ?? '').toString(),
+        name: json['name'] as String?,
+        type: json['type'] as String?,
+        rate: json['rate'] as num?,
+        isEnabled: (json['isEnabled'] as bool?) ?? true,
+      );
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        if (name != null) 'name': name,
+        if (type != null) 'type': type,
+        if (rate != null) 'rate': rate,
+        'isEnabled': isEnabled,
+      };
 }
 
 /// Addons come back in two shapes depending on the endpoint:

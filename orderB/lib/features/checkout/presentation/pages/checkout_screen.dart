@@ -59,28 +59,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         } catch (_) {/* keep synthetic */}
       }
 
-      // Matches the spec for POST /api/ticket/:
-      //   • variant  : ObjectId string of the chosen variantItem
-      //   • addons   : array of {addonId, quantity}
-      //   • discounts: omit / empty when the product is
-      //                `discountType: "applyEverytime"` (backend
-      //                auto-applies); send full {_id, name, type,
-      //                rate} objects otherwise.
+      // Body per POST /api/ticket/ spec. No unitPrice / discounts —
+      // backend resolves both server-side and ignores client values.
       return {
         'product': productId,
         'quantity': i.quantity,
         if (i.variantItemId != null) 'variant': i.variantItemId,
-        'unitPrice': i.unitPrice,
         'addons': i.addons
             .map((a) => {'addonId': a.addonId, 'quantity': a.quantity})
             .toList(),
         'note': '',
-        'discounts': const [],
       };
     }).toList();
 
-    // Repo defaults paymentMethod/paidStatus to COD/pending; no
-    // reason to spell them out until Fonepay lands.
+    // paymentMethod/paidStatus default to cash/unpaid in the repo.
     final success = await orderProvider.placeLiveOrder(
       businessId: AppConstants.bakeryBusinessId,
       items: itemsJson,
@@ -133,10 +125,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     context.go('/checkout/success', extra: placed);
   }
 
-  // COD is the only supported payment method right now — Fonepay /
-  // online payment is on the backlog. Keeping this as a list of one
-  // makes adding more methods a no-op when the time comes; the bottom
-  // sheet just becomes useful again.
+  // Cash-only today. Re-enable the bottom sheet when Fonepay lands.
 
   @override
   Widget build(BuildContext context) {
@@ -359,8 +348,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         _SelectableCard(
                           icon: Icons.account_balance_wallet_rounded,
                           iconColor: colors.error,
-                          title: 'Cash on Delivery',
-                          subtitle: 'Pay when your order arrives',
+                          title: 'Cash',
+                          subtitle: 'Pay in cash when your order arrives',
                           // No onTap — only one payment method right now,
                           // so the card is informational. Re-enable the
                           // bottom sheet when online payment (Fonepay)
@@ -495,6 +484,6 @@ class _SelectableCard extends StatelessWidget {
   }
 }
 
-// _PaymentBottomSheet removed — only one payment method (COD) is
+// _PaymentBottomSheet removed — only one payment method (cash) is
 // supported right now, so there's nothing to switch between. Re-add when
 // online payment lands.
