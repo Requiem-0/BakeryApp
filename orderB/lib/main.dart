@@ -173,14 +173,18 @@ Future<void> main() async {
 
   final addressProvider = AddressProvider(apiClient: apiClient);
   final notificationProvider = NotificationProvider(apiClient: apiClient);
-  // Addresses and notifications both live behind authenticated routes
-  // (/api/location/* and /api/notification/*). Hook into auth state so
-  // both refresh on login and clear on logout. This also handles the
-  // cold-start case where the user has a stored token from a previous
-  // session — once `authProvider.bootstrap()` flips status to
-  // authenticated, the listener fires and pulls the lists down.
+  // Refresh authed-only data on login, clear on logout. Tracks the last
+  // observed auth flag so we only fire on TRANSITIONS — AuthProvider
+  // notifies multiple times per flow (isBusy flips, errorMessage set,
+  // then status), and reacting to every notify wipes the guest cart
+  // mid-login before status has even flipped to authenticated.
+  bool? lastAuthState;
   authProvider.addListener(() {
-    if (authProvider.isAuthenticated) {
+    final isAuth = authProvider.isAuthenticated;
+    if (lastAuthState == isAuth) return;
+    lastAuthState = isAuth;
+
+    if (isAuth) {
       addressProvider.refresh().catchError((e, st) {
         debugPrint('🚨 Address refresh failed: $e\n$st');
       });

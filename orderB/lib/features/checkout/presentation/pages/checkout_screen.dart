@@ -99,13 +99,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final displayId = (serverId != null && serverId.length >= 4)
         ? '#OD-${serverId.substring(serverId.length - 4).toUpperCase()}'
         : '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    // Reverse-compute the original price + discount per line. The
+    // cart's unitPrice is already post-discount (backend resolves it),
+    // so we project back through the rule's rate to get the pre-discount
+    // figure for the success-screen breakdown.
+    double subtotalPre = 0;
+    double discountTotal = 0;
+    for (final i in cart.items) {
+      final addonPerUnit = i.addons
+          .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
+      final paidLineTotal = (i.unitPrice + addonPerUnit) * i.quantity;
+      final disc = i.product.autoDiscount;
+
+      double preLineTotal = paidLineTotal;
+      if (disc != null && disc.rate > 0) {
+        if (disc.type == 'percentage' && disc.rate < 100) {
+          preLineTotal = paidLineTotal / (1 - disc.rate / 100);
+        } else if (disc.type == 'flat') {
+          preLineTotal = paidLineTotal + disc.rate * i.quantity;
+        }
+      }
+      subtotalPre += preLineTotal;
+      discountTotal += preLineTotal - paidLineTotal;
+    }
+
     final placed = PlacedOrder(
       id: displayId,
       eta: eta,
       items: cart.items.map((i) {
-        // Per-unit price the customer ACTUALLY paid (variant +
-        // addons). Using product.price here would show the
-        // cheapest-variant teaser instead of the real charge.
+        // Per-unit price the customer ACTUALLY paid (variant + addons).
         final addonPerUnit = i.addons
             .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
         return PlacedOrderItem(
@@ -116,6 +138,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           selectedVariants: i.selectedVariants,
         );
       }).toList(),
+      subtotal: subtotalPre,
+      discount: discountTotal,
       total: cart.total,
       addressLabel: addr.label,
       addressFull: addr.address,

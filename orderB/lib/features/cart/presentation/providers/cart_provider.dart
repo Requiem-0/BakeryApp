@@ -88,16 +88,70 @@ class CartProvider extends ChangeNotifier {
 
   /// Pulls the server-side cart and replaces the local list.
   ///
-  /// No-ops for guests. Errors are swallowed (caller cannot recover; the
-  /// local cart just stays empty) but logged for diagnostics.
+  /// On sign-in: any items the user added as a guest are pushed to the
+  /// server first so they survive the login transition. The server-
+  /// authoritative cart is fetched at the end to pick up anything the
+  /// server already had.
+  ///
+  /// No-ops for guests. Errors are swallowed (caller can't recover) but
+  /// logged for diagnostics.
   Future<void> bootstrap() async {
     if (!_isAuthenticated()) return;
     _isLoading = true;
     notifyListeners();
+
+    // Snapshot the guest cart before any server call overwrites _items.
+    final guestItems = List<CartItem>.from(_items);
+
     try {
-      final result = await _repo.fetchMyCart();
-      if (result.isSuccess && result.data != null) {
-        _replaceItemsFrom(result.data!);
+      if (guestItems.isEmpty) {
+        // Cold-start: no local items to migrate, just hydrate from
+        // whatever the server already has for this user.
+        final result = await _repo.fetchMyCart();
+        if (result.isSuccess && result.data != null) {
+          _replaceItemsFrom(result.data!);
+        }
+        return;
+      }
+
+      // Guest → user migration. addItem returns the full updated cart,
+      // so the loop's last successful response already includes any
+      // pre-existing server lines. No separate fetch needed — that
+      // would wipe local items if pushes 401 during the auth-token
+      // handover race.
+      bool anyPushSucceeded = false;
+      for (final guest in guestItems) {
+        final adminId = guest.product.adminId;
+        if (adminId == null || adminId.isEmpty) continue; // synthetic product
+
+        final addonsMap = <String, int>{
+          for (final a in guest.addons) a.addonId: a.quantity,
+        };
+
+        final pushed = await _repo.addItem(
+          adminId: adminId,
+          productId: guest.product.id,
+          variantItemId: guest.variantItemId,
+          quantity: guest.quantity,
+          addons: addonsMap,
+        );
+        if (pushed.isSuccess && pushed.data != null) {
+          _replaceItemsFrom(pushed.data!);
+          anyPushSucceeded = true;
+        } else {
+          debugPrint(
+              '⚠️ Cart migration push failed: ${pushed.failure?.message}');
+        }
+      }
+
+      if (!anyPushSucceeded) {
+        // Every push 401'd or errored. Local items are still in _items
+        // (no _replaceItemsFrom fired), so the user keeps their cart.
+        // Server stays empty until they take another mutation that
+        // succeeds; for then-future syncs we'll be back in normal mode.
+        debugPrint(
+            '⚠️ Guest cart migration: 0/${guestItems.length} lines reached '
+            'the server. Cart preserved locally; will resync on next mutation.');
       }
     } catch (e) {
       debugPrint('🚨 CartProvider.bootstrap: $e');

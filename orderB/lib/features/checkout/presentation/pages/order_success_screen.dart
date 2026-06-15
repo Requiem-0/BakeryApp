@@ -154,6 +154,37 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                               ),
                             )),
                         Divider(height: 20, color: theme.dividerColor),
+                        // Subtotal + discount, only when a rule fired.
+                        if (o.discount > 0) ...[
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Subtotal',
+                                  style: theme.textTheme.bodySmall),
+                              Text(
+                                AppConstants.formatPrice(o.subtotal),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Discount',
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(color: colors.error)),
+                              Text(
+                                '− ${AppConstants.formatPrice(o.discount)}',
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: colors.error),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         // Total
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

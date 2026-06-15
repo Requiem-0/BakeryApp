@@ -88,25 +88,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _onLoginSuccess() {
     // Defer to the next frame so the auth provider's mid-notify settles
-    // before we navigate — on Flutter Web, calling pop() from inside the
-    // button tap (which is itself inside the listener-cascade frame) gets
-    // silently swallowed by go_router.
+    // before we navigate — on Flutter Web, calling navigation from
+    // inside the button tap (which is itself inside the listener-cascade
+    // frame) can get silently swallowed by go_router.
+    //
+    // We always go('/home') rather than pop() — go() is idempotent and
+    // can't get lost mid-stack, and "land on home after login" is the
+    // most predictable UX regardless of where the user was before.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/home');
-      }
-      // Verify on the next frame: if pop was swallowed (location is still
-      // /login), force-route to /home so the user isn't stranded.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final after = GoRouterState.of(context).uri.toString();
-        if (after.startsWith('/login')) {
-          context.go('/home');
-        }
-      });
+      context.go('/home');
     });
   }
 
