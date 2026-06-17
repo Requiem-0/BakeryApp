@@ -70,6 +70,30 @@ class CartProvider extends ChangeNotifier {
   double get subtotal =>
       _items.fold<double>(0, (sum, i) => sum + i.lineTotal);
 
+  /// Total amount the `applyEverytime` rules knocked off this cart.
+  /// Computed by reverse-projecting each line's post-discount unitPrice
+  /// through its rule rate to get the pre-discount total, then summing
+  /// the deltas. Zero when no line carries an active rule.
+  double get discountTotal {
+    double total = 0;
+    for (final i in _items) {
+      final disc = i.product.autoDiscount;
+      if (disc == null || disc.rate <= 0) continue;
+
+      final addonPerUnit = i.addons
+          .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
+      final paid = (i.unitPrice + addonPerUnit) * i.quantity;
+      double pre = paid;
+      if (disc.type == 'percentage' && disc.rate < 100) {
+        pre = paid / (1 - disc.rate / 100);
+      } else if (disc.type == 'flat') {
+        pre = paid + disc.rate * i.quantity;
+      }
+      total += pre - paid;
+    }
+    return total;
+  }
+
   /// Per-order service charge applied at checkout. Reads from the live
   /// business config (`orderChargePerOrder`) when one is wired, falling
   /// back to 0 when no business has loaded — never falls back to a
@@ -83,6 +107,39 @@ class CartProvider extends ChangeNotifier {
 
   bool contains(Product product) =>
       _items.any((i) => i.product.id == product.id);
+
+  /// Re-resolves each line's [Product] against the catalogue. Used when
+  /// the catalogue finishes loading AFTER the cart already hydrated —
+  /// without this, lines that landed during the loading window keep
+  /// their thin Product (no `autoDiscount`, no variantItems, no addons)
+  /// and the discount badge + receipt math silently break.
+  void rehydrateProducts() {
+    if (_items.isEmpty || _productResolver == null) return;
+    bool changed = false;
+    for (int i = 0; i < _items.length; i++) {
+      final current = _items[i];
+      final resolved = _productResolver!(current.product.id);
+      if (resolved == null) continue;
+      // Skip when the current product already has the data we'd swap in.
+      final currentHasData = current.product.adminId != null ||
+          current.product.autoDiscount != null ||
+          current.product.variantItems.isNotEmpty ||
+          current.product.addons.isNotEmpty;
+      if (currentHasData) continue;
+      _items[i] = CartItem(
+        product: resolved,
+        quantity: current.quantity,
+        variantItemId: current.variantItemId,
+        variantItemLabel: current.variantItemLabel,
+        unitPrice: current.unitPrice,
+        addons: current.addons,
+        serverItemId: current.serverItemId,
+        selectedVariants: current.selectedVariants,
+      );
+      changed = true;
+    }
+    if (changed) notifyListeners();
+  }
 
   // ── Hydration ─────────────────────────────────────────────────────────────
 
@@ -100,13 +157,19 @@ class CartProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Snapshot the guest cart before any server call overwrites _items.
-    final guestItems = List<CartItem>.from(_items);
+    // Only items WITHOUT a serverItemId need migrating — those are the
+    // guest additions that never round-tripped to the cart endpoint.
+    // Items already synced (pull-to-refresh, post-login bootstrap) get
+    // a clean fetch instead, so we don't re-POST and double-count them.
+    final guestItems = _items
+        .where(
+          (i) => i.serverItemId == null || i.serverItemId!.isEmpty,
+        )
+        .toList();
 
     try {
       if (guestItems.isEmpty) {
-        // Cold-start: no local items to migrate, just hydrate from
-        // whatever the server already has for this user.
+        // No unsynced items — pure fetch from the server.
         final result = await _repo.fetchMyCart();
         if (result.isSuccess && result.data != null) {
           _replaceItemsFrom(result.data!);

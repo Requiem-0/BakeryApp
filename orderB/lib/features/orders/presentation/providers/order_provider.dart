@@ -276,12 +276,4 @@ class OrderProvider extends ChangeNotifier {
     );
     return result.isSuccess;
   }
-
-  /// Clears the orders state (useful on logout)
-  void clearOrders() {
-    _orders = const [];
-    _state = OrderLoadState.idle;
-    _errorMessage = null;
-    notifyListeners();
-  }
 }

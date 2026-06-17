@@ -63,7 +63,14 @@ class ApiClient {
   Future<Response<dynamic>> post(String path, {Object? body}) =>
       _dio.post(path, data: body);
 
-  Future<Response<dynamic>> delete(String path) => _dio.delete(path);
+  Future<Response<dynamic>> put(String path, {Object? body}) =>
+      _dio.put(path, data: body);
+
+  Future<Response<dynamic>> patch(String path, {Object? body}) =>
+      _dio.patch(path, data: body);
+
+  Future<Response<dynamic>> delete(String path, {Object? body}) =>
+      _dio.delete(path, data: body);
 
   /// Convert any thrown error from a Dio call into an [ApiFailure].
   /// Reads `message` first, then `error`, to cover both backend shapes.

@@ -167,6 +167,11 @@ Future<void> main() async {
     cartProvider.serviceChargeResolver = () =>
         (businessProvider.current?.orderChargePerOrder ?? 0).toDouble();
   });
+  // When the catalogue finishes loading after the cart already hydrated,
+  // upgrade any thin cart Products (no autoDiscount / variants / addons)
+  // to their full catalogue versions. Without this, the discount badge
+  // and the receipt's discount row silently come up empty.
+  catalogueProvider.addListener(cartProvider.rehydrateProducts);
   cartProvider.bootstrap().catchError((e, st) {
     debugPrint('🚨 Cart bootstrap failed: $e\n$st');
   });
@@ -176,9 +181,12 @@ Future<void> main() async {
   // Refresh authed-only data on login, clear on logout. Tracks the last
   // observed auth flag so we only fire on TRANSITIONS — AuthProvider
   // notifies multiple times per flow (isBusy flips, errorMessage set,
-  // then status), and reacting to every notify wipes the guest cart
-  // mid-login before status has even flipped to authenticated.
-  bool? lastAuthState;
+  // then status). Initialize to the CURRENT auth state at attach time,
+  // not null — otherwise the first notify (often `isBusy = true` when
+  // the user taps Login, while status is still unauthenticated) reads
+  // as a null → false transition and wipes the guest cart before
+  // status even flips to authenticated.
+  bool lastAuthState = authProvider.isAuthenticated;
   authProvider.addListener(() {
     final isAuth = authProvider.isAuthenticated;
     if (lastAuthState == isAuth) return;

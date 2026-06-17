@@ -74,7 +74,7 @@ class CartRepository {
     required int quantity,
   }) async {
     try {
-      final res = await _api.dio.put('/cart/', data: {
+      final res = await _api.put('/cart/', body: {
         'items': [
           {'product': productId, 'quantity': quantity},
         ],
@@ -103,7 +103,7 @@ class CartRepository {
   /// against that.
   Future<ApiResult<ApiCart>> deleteItems(List<String> lineIds) async {
     try {
-      final res = await _api.dio.delete('/cart/', data: {'items': lineIds});
+      final res = await _api.delete('/cart/', body: {'items': lineIds});
       return ApiResult.success(ApiCart.fromAny(res.data));
     } catch (e) {
       debugPrint('🚨 CartRepository.deleteItems: $e');

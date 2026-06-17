@@ -47,7 +47,7 @@ class NotificationRepository {
   /// notification for the logged-in user in one server hop.
   Future<ApiResult<void>> markAllAsRead() async {
     try {
-      await _api.dio.patch('/notification/mark-as-read');
+      await _api.patch('/notification/mark-as-read');
       return ApiResult.success(null);
     } catch (e) {
       debugPrint('🚨 NotificationRepository.markAllAsRead: $e');
@@ -69,7 +69,7 @@ class NotificationRepository {
       if (isRead != null) body['isRead'] = isRead;
       if (isImportant != null) body['isImportant'] = isImportant;
       if (isArchived != null) body['isArchived'] = isArchived;
-      await _api.dio.patch('/notification/$notificationId/status', data: body);
+      await _api.patch('/notification/$notificationId/status', body: body);
       return ApiResult.success(null);
     } catch (e) {
       debugPrint('🚨 NotificationRepository.updateStatus: $e');

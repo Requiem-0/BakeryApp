@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../address/presentation/providers/address_provider.dart';
 
 class _EmptyAddresses extends StatelessWidget {
@@ -149,8 +150,128 @@ class SavedAddressesScreen extends StatelessWidget {
                               style: theme.textTheme.bodySmall
                                   ?.copyWith(fontSize: 12)),
                         ),
-                        trailing: Icon(Icons.more_vert_rounded,
-                            color: theme.colorScheme.outline, size: 20),
+                        trailing: PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert_rounded,
+                              color: theme.colorScheme.outline, size: 20),
+                          // Brand-consistent menu styling so it doesn't
+                          // look like a 2010 dropdown next to the
+                          // polished card.
+                          color: theme.cardColor,
+                          elevation: 4,
+                          shadowColor: Colors.black26,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                                color: theme.dividerColor, width: 1),
+                          ),
+                          offset: const Offset(0, 36),
+                          position: PopupMenuPosition.under,
+                          onSelected: (value) async {
+                            if (value == 'delete') {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete address?'),
+                                  content: Text(
+                                      'Remove "${a.label}" from your saved addresses?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            theme.colorScheme.error,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed != true) return;
+                              if (!context.mounted) return;
+                              final prov = context.read<AddressProvider>();
+                              final ok = await prov.deleteAddress(a.id);
+                              if (!context.mounted) return;
+                              if (ok) {
+                                AppToast.success(context, 'Address deleted');
+                              } else {
+                                AppToast.error(context,
+                                    prov.error ?? 'Could not delete address');
+                              }
+                            } else if (value == 'default') {
+                              // No-op when this is already the default —
+                              // the filled star communicates that.
+                              if (a.isActive) return;
+                              final prov = context.read<AddressProvider>();
+                              final ok = await prov.select(a.id);
+                              if (!context.mounted) return;
+                              if (ok) {
+                                AppToast.success(
+                                    context, 'Default address updated');
+                              } else {
+                                AppToast.error(context,
+                                    prov.error ?? 'Could not set default');
+                              }
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            PopupMenuItem(
+                              value: 'default',
+                              height: 40,
+                              // Tap is still allowed visually so the row
+                              // doesn't grey out, but the onSelected
+                              // handler short-circuits when already
+                              // active. The shining star carries the
+                              // meaning.
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    a.isActive
+                                        ? Icons.star_rounded
+                                        : Icons.star_outline_rounded,
+                                    size: 18,
+                                    color: a.isActive
+                                        ? Colors.amber.shade600
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Set as default',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: a.isActive
+                                          ? theme.colorScheme.onSurfaceVariant
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              height: 40,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded,
+                                      size: 18,
+                                      color: theme.colorScheme.error),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Delete',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.error,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }),

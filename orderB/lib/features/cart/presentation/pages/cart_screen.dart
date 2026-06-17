@@ -275,11 +275,21 @@ class CartScreen extends StatelessWidget {
                             children: [
                               _PriceSummaryRow(
                                   label: 'Subtotal',
-                                  value: cart.subtotal),
+                                  value: cart.subtotal + cart.discountTotal),
+                              // Discount line only when an
+                              // applyEverytime rule actually fired on
+                              // a cart item — keeps the summary clean
+                              // otherwise.
+                              if (cart.discountTotal > 0) ...[
+                                const SizedBox(height: 10),
+                                _PriceSummaryRow(
+                                    label: 'Discount',
+                                    value: -cart.discountTotal,
+                                    color: Theme.of(context).colorScheme.error),
+                              ],
                               // Service charge only renders when the
                               // business actually has one set on the
-                              // backend — keeps the summary clean for
-                              // bakeries that don't levy a fee.
+                              // backend.
                               if (cart.serviceCharge > 0) ...[
                                 const SizedBox(height: 10),
                                 _PriceSummaryRow(
@@ -348,18 +358,32 @@ class _PriceSummaryRow extends StatelessWidget {
   final String label;
   final double value;
 
-  const _PriceSummaryRow({required this.label, required this.value});
+  /// Optional override for both label and value text colour. Used by
+  /// the discount row to render in the theme's error colour.
+  final Color? color;
+
+  const _PriceSummaryRow({
+    required this.label,
+    required this.value,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isNegative = value < 0;
+    final display = isNegative
+        ? '− ${AppConstants.formatPrice(-value)}'
+        : AppConstants.formatPrice(value);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: theme.textTheme.bodySmall),
-        Text(AppConstants.formatPrice(value),
+        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+        Text(display,
             style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600)),
+              fontWeight: FontWeight.w600,
+              color: color,
+            )),
       ],
     );
   }

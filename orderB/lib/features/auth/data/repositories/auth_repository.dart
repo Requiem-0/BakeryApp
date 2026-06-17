@@ -88,7 +88,7 @@ class AuthRepository {
     required String confirmPassword,
   }) async {
     try {
-      await _api.dio.patch('/auth/reset-password', data: {
+      await _api.patch('/auth/reset-password', body: {
         'resetToken': resetToken,
         'newPassword': newPassword,
         'confirmPassword': confirmPassword,
@@ -132,7 +132,7 @@ class AuthRepository {
     required String newPassword,
   }) async {
     try {
-      await _api.dio.patch('/auth/change-password', data: {
+      await _api.patch('/auth/change-password', body: {
         'oldPassword': oldPassword,
         'newPassword': newPassword,
       });

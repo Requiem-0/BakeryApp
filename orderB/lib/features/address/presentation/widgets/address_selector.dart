@@ -224,6 +224,29 @@ class AddressBottomSheet extends StatelessWidget {
           Text('Select Address',
               style: theme.textTheme.headlineLarge?.copyWith(fontSize: 18)),
           const SizedBox(height: 16),
+          // Empty state — no point in showing just an "Add" button
+          // with no context. Explain why the list is blank.
+          if (addresses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(Icons.location_off_outlined,
+                      size: 48, color: colors.onSurfaceVariant),
+                  const SizedBox(height: 12),
+                  Text('No saved addresses yet',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Add one so we know where to bring your order.",
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
           ...addresses.map((addr) {
             final isSelected = addr.id == selectedId;
             return GestureDetector(

@@ -112,7 +112,7 @@ class LocationRepository {
       if (longitude != null) body['longitude'] = longitude;
       if (isActive != null) body['isActive'] = isActive;
 
-      final res = await _api.dio.patch('/location/$locationId', data: body);
+      final res = await _api.patch('/location/$locationId', body: body);
       return _parse(res.data);
     } catch (e) {
       debugPrint('🚨 LocationRepository.updateLocation: $e');
