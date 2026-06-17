@@ -38,10 +38,13 @@ if (hasUploadKeystore) {
 
 android {
     namespace = "com.brandbuilder.breakingbread.bakery"
-    // Pinned to 35 (Android 15) — Play Store rejects new uploads
-    // targeting below 34 as of August 2025. Hardcoded so a future
-    // Flutter SDK bump can't silently drift us off-spec.
-    compileSdk = 35
+    // compileSdk follows whichever Android SDK our plugins are built
+    // against — multiple Flutter plugins (geolocator, package_info_plus,
+    // shared_preferences, sqflite) compile against 36, so we match.
+    // Backward compatible — doesn't affect minSdk / targetSdk / what
+    // devices can install. [targetSdk] below is what Play Store cares
+    // about; that stays at 35 to match the current Play floor.
+    compileSdk = 36
     // Pinned to a locally-installed NDK so Gradle doesn't try to fetch
     // `flutter.ndkVersion` (28.2.13676358) every cold build. orderB is
     // pure Flutter — no JNI — so any NDK on the path works.
@@ -60,7 +63,7 @@ android {
         applicationId = "com.brandbuilder.breakingbread.bakery"
         // Android 6 (Marshmallow). Covers ~99% of active devices in
         // Nepal and gives us runtime permission APIs by default.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName

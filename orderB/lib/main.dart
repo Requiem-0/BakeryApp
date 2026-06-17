@@ -31,6 +31,14 @@ import 'core/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Hide the system status bar (clock / battery / notifications) so the
+  // app extends edge-to-edge at the top. Keep the bottom system nav so
+  // Android users still have back/home/recents. No-op on Web.
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.bottom],
+  );
+
   // ── Firebase + Crashlytics ──────────────────────────────────────
   // Wrapped in try/catch so dev machines that don't have a
   // google-services.json yet (the file is gitignored and lives only
