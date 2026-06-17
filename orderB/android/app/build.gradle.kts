@@ -37,7 +37,7 @@ if (hasUploadKeystore) {
 }
 
 android {
-    namespace = "com.breakingbread.bakery"
+    namespace = "com.brandbuilder.breakingbread.bakery"
     // Pinned to 35 (Android 15) — Play Store rejects new uploads
     // targeting below 34 as of August 2025. Hardcoded so a future
     // Flutter SDK bump can't silently drift us off-spec.
@@ -57,7 +57,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.breakingbread.bakery"
+        applicationId = "com.brandbuilder.breakingbread.bakery"
         // Android 6 (Marshmallow). Covers ~99% of active devices in
         // Nepal and gives us runtime permission APIs by default.
         minSdk = 23
