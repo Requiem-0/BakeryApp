@@ -18,7 +18,7 @@ abstract final class AppConstants {
 
   /// `true` for prod builds, `false` for dev. Touches [apiBaseUrl],
   /// [imageHostUrl], and [bakeryBusinessId] in one shot.
-  static const bool useProd = false;
+  static const bool useProd = true;
 
   /// Beta's "sakjfhaskj" — the test catalogue with every variant +
   /// addon shape we needed to debug against (Momo's 2-axis variants,
