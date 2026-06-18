@@ -499,8 +499,12 @@ class _SelectableCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.keyboard_arrow_down_rounded,
-                color: theme.textTheme.bodySmall?.color, size: 24),
+            // Chevron only when the card is actually tappable — drops
+            // the dropdown affordance from informational cards (e.g.
+            // the cash-only payment method tile).
+            if (onTap != null)
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  color: theme.textTheme.bodySmall?.color, size: 24),
           ],
         ),
       ),

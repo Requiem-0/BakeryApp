@@ -152,28 +152,10 @@ class _HomeScreenState extends State<HomeScreen>
           // ── Header ──────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: AddressSelector(
-                    selectedId: addrProv.selectedId,
-                    onTap: _showAddressSheet,
-                    variant: AddressSelectorVariant.header,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Notification bell
-                IconButton(
-                  onPressed: () => context.push('/profile/notifications'),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(context).dividerColor,
-                    foregroundColor:
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                    minimumSize: const Size(44, 44),
-                  ),
-                  icon: const Icon(Icons.notifications_outlined, size: 22),
-                ),
-              ],
+            child: AddressSelector(
+              selectedId: addrProv.selectedId,
+              onTap: _showAddressSheet,
+              variant: AddressSelectorVariant.header,
             ),
           ),
           const SizedBox(height: 14),

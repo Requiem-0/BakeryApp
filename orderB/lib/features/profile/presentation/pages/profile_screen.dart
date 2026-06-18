@@ -140,19 +140,9 @@ class ProfileScreen extends StatelessWidget {
               label: 'Saved Addresses',
               sub: 'Manage delivery locations',
               onTap: _pushOrLogin(context, isAuth, '/profile/addresses')),
-          _MenuTile(
-              icon: Icons.credit_card_rounded,
-              label: 'Payment Methods',
-              sub: 'Cards & digital wallets',
-              onTap: _pushOrLogin(context, isAuth, '/profile/payments')),
           const SizedBox(height: 16),
           const _SectionHeader(label: 'PREFERENCES'),
           const SizedBox(height: 8),
-          _MenuTile(
-              icon: Icons.notifications_rounded,
-              label: 'Notifications',
-              sub: 'Push & email settings',
-              onTap: _pushOrLogin(context, isAuth, '/profile/notifications')),
           _MenuTile(
               icon: Icons.settings_rounded,
               label: 'Settings',

@@ -19,8 +19,6 @@ import '../../features/orders/presentation/pages/recent_orders_screen.dart';
 import '../../features/favourites/presentation/pages/favourites_screen.dart';
 import '../../features/profile/presentation/pages/add_new_address_screen.dart';
 import '../../features/profile/presentation/pages/change_password_screen.dart';
-import '../../features/profile/presentation/pages/notifications_screen.dart';
-import '../../features/profile/presentation/pages/payment_methods_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/saved_addresses_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
@@ -76,8 +74,6 @@ GoRouter createRouter(AuthProvider authProvider) {
           '/home/recent_orders',
           '/profile/orders',
           '/profile/addresses',
-          '/profile/payments',
-          '/profile/notifications',
           '/profile/settings/change-password',
           '/cart/checkout',
         ];
@@ -230,14 +226,6 @@ GoRouter createRouter(AuthProvider authProvider) {
                     ],
                   ),
                   GoRoute(
-                    path: 'payments',
-                    builder: (context, state) => const PaymentMethodsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'notifications',
-                    builder: (context, state) => const NotificationsScreen(),
-                  ),
-                  GoRoute(
                     path: 'settings',
                     builder: (context, state) => const SettingsScreen(),
                     routes: [
@@ -281,15 +269,18 @@ class _SplashAssetLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!AppConstants.useProd) {
-      return const Text('🥐', style: TextStyle(fontSize: 48));
+      return const Center(
+        child: Text('🥐', style: TextStyle(fontSize: 72)),
+      );
     }
     return Image.asset(
       'assets/branding/bakery_logo.jpg',
-      width: 100,
-      height: 100,
+      width: 140,
+      height: 140,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) =>
-          const Text('🥐', style: TextStyle(fontSize: 48)),
+      errorBuilder: (_, __, ___) => const Center(
+        child: Text('🥐', style: TextStyle(fontSize: 72)),
+      ),
     );
   }
 }
@@ -425,28 +416,29 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Logo plate — logo fills the rounded square edge-to-edge
+            // via BoxFit.cover + zero padding, so the JPG's own
+            // backdrop never peeks out from behind it. The rounded
+            // clip handles the corners; the shadow gives soft depth.
             Container(
-              width: 100,
-              height: 100,
+              width: 140,
+              height: 140,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkBrown : AppColors.terracotta,
                 borderRadius: BorderRadius.circular(32),
                 boxShadow: [
                   BoxShadow(
-                    color: (isDark ? AppColors.darkBrown : AppColors.terracotta)
-                        .withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    color: AppColors.darkBrown.withValues(alpha: 0.10),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
                   )
                 ],
               ),
-              alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
               child: cachedLogoFile != null
                   ? Image.file(
                       cachedLogoFile,
-                      width: 100,
-                      height: 100,
+                      width: 140,
+                      height: 140,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
                           const _SplashAssetLogo(),
