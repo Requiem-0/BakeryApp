@@ -1,4 +1,4 @@
-package com.brandbuilder.breakingbread.bakery
+package com.breakingbread.bakery
 
 import io.flutter.embedding.android.FlutterActivity
 
