@@ -81,18 +81,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       Text(
                         'Forgot Password',
                         style: theme.textTheme.displayLarge?.copyWith(
-                          fontSize: 34,
+                          fontSize: 40,
                           fontWeight: FontWeight.bold,
+                          height: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 14),
                       Text(
                         'Enter your email address or phone number to receive a verification token to reset your password.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark ? Colors.grey[400] : AppColors.textLight,
+                          height: 1.4,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 44),
                       
                       Text(
                         'EMAIL OR PHONE NUMBER',
