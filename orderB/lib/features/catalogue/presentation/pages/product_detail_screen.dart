@@ -6,7 +6,6 @@ import '../../data/models/product.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
-import '../../../../shared/widgets/app_toast.dart';
 import '../../../cart/presentation/widgets/product_bottom_cta.dart';
 import '../providers/catalogue_provider.dart';
 import '../widgets/grid_product_card.dart';
@@ -26,8 +25,6 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _quantity = 0;
-
   /// Currently-picked [VariantItem._id]. Null only before initState lands
   /// the default selection or when the product has no variants at all.
   /// We track by ID (not list index) so the picker degrades gracefully
@@ -89,18 +86,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cartItem = context
-          .read<CartProvider>()
-          .items
-          .where((i) => i.product.id == widget.product.id)
-          .firstOrNull;
-      if (cartItem != null && mounted) {
-        setState(() {
-          _quantity = cartItem.quantity;
-        });
-      }
-    });
+    // No quantity priming — the stepper's count is derived from the
+    // CartProvider in build() for the currently-selected variant. This
+    // lets the customer add Small, switch to Medium, and see Medium's
+    // separate count (0) without the screen showing Small's quantity.
   }
 
   @override
@@ -113,8 +102,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final favProv = context.watch<FavouritesProvider>();
     final isFav = favProv.isFavourite(widget.product.id);
 
-    final double totalPrice =
-        (_effectivePrice + _selectedAddonsTotal) * _quantity;
+    // Quantity in cart for the CURRENTLY-SELECTED configuration
+    // (variant + addons), not summed across every line of this
+    // product. Watching CartProvider so the stepper rebuilds on every
+    // +/- and stays in sync if the cart is mutated from somewhere
+    // else (e.g. the cart screen). Switching variants or toggling
+    // addons changes which line the stepper tracks.
+    final qtyInCart = context.watch<CartProvider>().qtyOf(
+          productId: widget.product.id,
+          variantItemId: _selectedVariantItemId ?? _selectedVariantItem?.id,
+          addons: Map.unmodifiable(_selectedAddons),
+        );
+    // Before the customer adds anything, show the price for one
+    // unit instead of Rs 0 — keeps the CTA informative on first view.
+    final priceMultiplier = qtyInCart > 0 ? qtyInCart : 1;
+
+    // Sticker (pre-discount) and paid (post-discount) per-unit prices.
+    // Sticker matches what the variant picker shows; paid is what the
+    // cart will charge. When no autoDiscount rule is set the two are
+    // identical, and the strikethrough doesn't render.
+    final double stickerUnit = _effectivePrice + _selectedAddonsTotal;
+    final double paidUnit =
+        widget.product.autoDiscount?.apply(stickerUnit) ?? stickerUnit;
+    final double totalPrice = paidUnit * priceMultiplier;
+    final double stickerTotal = stickerUnit * priceMultiplier;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -179,23 +190,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: Theme.of(context).textTheme.bodySmall),
                       ],
 
-                      // Live unit price hint — shows what the customer
-                      // will pay per unit at their current variant +
-                      // addon selection. Always visible so the picker
-                      // gives immediate price feedback, not just when
-                      // they tap "+".
-                      if ((_effectivePrice + _selectedAddonsTotal) > 0) ...[
+                      // Live unit price — what the customer will pay
+                      // per unit at their current variant + addon
+                      // selection. Always visible so the picker gives
+                      // immediate price feedback, not just when they
+                      // tap "+".
+                      //
+                      // When the product has an autoDiscount rule, the
+                      // pre-discount sticker price renders strikethrough
+                      // alongside, so the customer sees the deal across
+                      // every variant + addon combination (not just the
+                      // base product).
+                      if (stickerUnit > 0) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          AppConstants.formatPrice(
-                              _effectivePrice + _selectedAddonsTotal),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
+                        Builder(
+                          builder: (context) {
+                            final showStrike = paidUnit < stickerUnit;
+                            return Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                if (showStrike) ...[
+                                  Text(
+                                    AppConstants.formatPrice(stickerUnit),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          decoration:
+                                              TextDecoration.lineThrough,
+                                        ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
+                                Text(
+                                  AppConstants.formatPrice(paidUnit),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
 
@@ -268,7 +314,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       // shows the label as-is. Hidden entirely for plain
                       // products with no variantItems.
                       if (widget.product.variantItems.isNotEmpty) ...[
-                        const _SectionHeader(title: 'Variants'),
+                        _SectionHeader(
+                          title: 'Variants',
+                          // Single section-level tag instead of cluttering
+                          // every row with a strikethrough. Communicates
+                          // the discount once: "−Rs 10 each" / "−10% each".
+                          trailing: widget.product.autoDiscount != null
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .error
+                                        .withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    widget.product.autoDiscount!.tagLabel,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.2,
+                                        ),
+                                  ),
+                                )
+                              : null,
+                        ),
                         const SizedBox(height: 12),
                         ...widget.product.variantItems.map((v) {
                           final isSelected =
@@ -328,45 +405,49 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
 
           // ── Bottom CTA ───────────────────────────────────────────
+          // Stepper +/- target the line matching the CURRENT variant
+          // selection, so picking Medium and tapping + creates a
+          // separate Medium line even when Small is already in cart.
           ProductBottomCta(
-            quantity: _quantity,
+            quantity: qtyInCart,
             totalPrice: totalPrice,
+            // Surface the pre-discount sticker total beside the
+            // discounted total when the two diverge — keeps the
+            // detail-screen CTA honest with what the cart will charge.
+            stickerTotalPrice: stickerTotal > totalPrice ? stickerTotal : null,
             onDecrement: () {
-              if (_quantity > 0) {
-                setState(() => _quantity--);
-                final cart = context.read<CartProvider>();
-                if (cart.contains(widget.product)) {
-                  cart.updateById(widget.product.id, _quantity);
-                }
-              }
+              context.read<CartProvider>().decrementVariantLine(
+                    productId: widget.product.id,
+                    variantItemId:
+                        _selectedVariantItemId ?? _selectedVariantItem?.id,
+                    addons: Map.unmodifiable(_selectedAddons),
+                  );
             },
             onIncrement: () {
-              setState(() => _quantity++);
-              final cart = context.read<CartProvider>();
-              if (cart.contains(widget.product)) {
-                cart.updateById(widget.product.id, _quantity);
-              } else {
-                cart.addProduct(widget.product,
-                    quantity: _quantity,
+              // addProduct dedupes by (productId, variantItemId), so
+              // calling it for a different variant always creates a
+              // new line. No more cart.updateById racing across
+              // variants.
+              context.read<CartProvider>().addProduct(
+                    widget.product,
+                    quantity: 1,
                     variant: _selectedVariantItem,
                     addons: Map.unmodifiable(_selectedAddons),
-                    selectedVariants: _variantSelections);
-              }
+                    selectedVariants: _variantSelections,
+                  );
             },
             onCheckout: () {
-              if (_quantity > 0) {
-                final cart = context.read<CartProvider>();
-                if (!cart.contains(widget.product)) {
-                  cart.addProduct(widget.product,
-                      quantity: _quantity,
-                      variant: _selectedVariantItem,
-                      addons: Map.unmodifiable(_selectedAddons),
-                      selectedVariants: _variantSelections);
-                }
-                context.push('/cart');
-              } else {
-                AppToast.error(context, 'Please select at least 1 item');
+              final cart = context.read<CartProvider>();
+              if (qtyInCart == 0) {
+                cart.addProduct(
+                  widget.product,
+                  quantity: 1,
+                  variant: _selectedVariantItem,
+                  addons: Map.unmodifiable(_selectedAddons),
+                  selectedVariants: _variantSelections,
+                );
               }
+              context.push('/cart');
             },
           ),
         ],
@@ -426,28 +507,8 @@ class _HeroImage extends StatelessWidget {
                       fontWeight: FontWeight.w600)),
             ),
           ),
-        if (product.autoDiscount != null)
-          Positioned(
-            bottom: 16,
-            right: 20,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.error,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                product.autoDiscount!.badgeLabel,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onError,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 9,
-                  letterSpacing: 0.4,
-                ),
-              ),
-            ),
-          ),
+        // Discount pill removed — the strikethrough original price
+        // next to the live unit price now carries the same signal.
       ],
     );
   }
@@ -456,8 +517,14 @@ class _HeroImage extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String title;
 
+  /// Optional widget rendered on the right of the title — used to surface
+  /// a section-wide signal (e.g. an "all-variant" discount tag) once
+  /// instead of repeating it on every row underneath.
+  final Widget? trailing;
+
   const _SectionHeader({
     required this.title,
+    this.trailing,
   });
 
   @override
@@ -475,6 +542,7 @@ class _SectionHeader extends StatelessWidget {
                 ),
           ),
         ),
+        if (trailing != null) trailing!,
       ],
     );
   }

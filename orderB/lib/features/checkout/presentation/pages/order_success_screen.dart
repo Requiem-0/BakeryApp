@@ -133,14 +133,36 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                                         Text('x${item.quantity}',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(fontSize: 12)),
-                                        if (item.selectedVariants.isNotEmpty)
-                                          Text(
-                                            item.selectedVariants.entries
-                                                .map((e) => '${e.key}: ${e.value}')
-                                                .join(' · '),
+                                        // Variant + addons subtitle —
+                                        // single " · "-joined string so
+                                        // every combination renders the
+                                        // same way as the checkout and
+                                        // invoice-sheet receipts. Falls
+                                        // back to variantLabel when the
+                                        // structured map is empty
+                                        // (quick-add items).
+                                        Builder(builder: (_) {
+                                          final variantText = item
+                                                  .selectedVariants.isNotEmpty
+                                              ? item.selectedVariants.entries
+                                                  .map((e) =>
+                                                      '${e.key}: ${e.value}')
+                                                  .join(' · ')
+                                              : (item.variantLabel ?? '');
+                                          final parts = <String>[
+                                            if (variantText.isNotEmpty)
+                                              variantText,
+                                            ...item.addons,
+                                          ];
+                                          if (parts.isEmpty) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          return Text(
+                                            parts.join(' · '),
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(fontSize: 10),
-                                          ),
+                                          );
+                                        }),
                                       ],
                                     ),
                                   ),
@@ -154,38 +176,11 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                               ),
                             )),
                         Divider(height: 20, color: theme.dividerColor),
-                        // Subtotal + discount, only when a rule fired.
-                        if (o.discount > 0) ...[
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Subtotal',
-                                  style: theme.textTheme.bodySmall),
-                              Text(
-                                AppConstants.formatPrice(o.subtotal),
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Discount',
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(color: colors.error)),
-                              Text(
-                                '− ${AppConstants.formatPrice(o.discount)}',
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: colors.error),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        // Total
+                        // Total — line items above are already
+                        // post-discount (item.price = unitPrice +
+                        // addonPerUnit), so they sum to o.total.
+                        // Clean bill format — no separate discount
+                        // breakdown below.
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

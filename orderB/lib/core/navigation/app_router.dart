@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/businesses/presentation/providers/business_provider.dart';
 import '../../features/catalogue/data/models/product.dart';
 import '../constants.dart';
@@ -393,7 +394,17 @@ class _SplashScreenState extends State<SplashScreen> {
         bizState == BusinessLoadState.error;
     if (!bizDone && !isFallbackElapsed) return;
     _navigated = true;
-    context.go('/home');
+    // Restore the last-active shell branch instead of always going
+    // home. The index is written by [AppShell] on every nav tap, so a
+    // cold restart / hot restart lands the user back on the tab they
+    // were on. Defaults to Home (index 0) on first launch.
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      final idx = prefs.getInt(lastBranchIndexKey) ?? 0;
+      const paths = ['/home', '/favourites', '/cart', '/profile'];
+      final dest = paths[idx.clamp(0, paths.length - 1)];
+      context.go(dest);
+    });
   }
 
   @override

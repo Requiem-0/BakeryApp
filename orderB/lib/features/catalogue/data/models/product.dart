@@ -75,6 +75,20 @@ class Product {
   bool get hasVariants =>
       variants.any((g) => g.options.length > 1) || variantItems.length > 1;
 
+  /// The post-discount price the customer actually pays per unit.
+  /// Returns null when no discount is active.
+  ///
+  /// [price] is the STICKER (pre-discount) — what the variant picker
+  /// shows, what the catalogue lists. The backend applies the
+  /// autoDiscount rule on top to arrive at the unitPrice stored in
+  /// the cart. We mirror that locally so the home card can show
+  /// ~~Rs 100~~ Rs 90 without round-tripping to the cart first.
+  double? get discountedPrice {
+    final d = autoDiscount;
+    if (d == null || d.rate <= 0) return null;
+    return d.apply(price);
+  }
+
   /// Resolves a [VariantItem] by matching the user-picked option labels
   /// (order-independent). Returns null when no match exists — caller
   /// should treat this as "the user hasn't completed the picker yet".
@@ -106,8 +120,7 @@ class Product {
       reviews: api.orderedCount,
       image: '🍴',
       imageUrl: AppConstants.resolveImageUrl(api.image),
-      // Skip the legacy text badge when autoDiscount has its own pill.
-      badge: autoDiscount == null && isPopular ? 'Popular' : null,
+      badge: isPopular ? 'Popular' : null,
       description: api.description ?? '',
       tags: [
         if (api.isVeg) 'Vegan',
@@ -269,5 +282,33 @@ class ProductDiscount {
       return '$r% OFF';
     }
     return 'Rs ${rate.toStringAsFixed(0)} OFF';
+  }
+
+  /// Inline label for section-header tags. Slightly different phrasing
+  /// than [badgeLabel] — "-10% each" / "-Rs 10 each" reads naturally
+  /// next to a "Variants" header where the discount applies to every
+  /// row underneath.
+  String get tagLabel {
+    if (type == 'percentage') {
+      final r = rate % 1 == 0 ? rate.toStringAsFixed(0) : rate.toString();
+      return '-$r% each';
+    }
+    return '-Rs ${rate.toStringAsFixed(0)} each';
+  }
+
+  /// Applies this discount rule to [price] and returns the discounted
+  /// amount. Mirrors the backend's per-line projection so the UI can
+  /// preview what the cart will charge before the customer hits add.
+  double apply(double price) {
+    if (rate <= 0) return price;
+    if (type == 'percentage') {
+      if (rate >= 100) return 0;
+      return price * (1 - rate / 100);
+    }
+    if (type == 'flat') {
+      final result = price - rate;
+      return result < 0 ? 0 : result;
+    }
+    return price;
   }
 }

@@ -40,11 +40,26 @@ class PlacedOrderItem {
   final double price;
   final Map<String, String> selectedVariants;
 
+  /// Flat variant label (e.g. "Large", "Steam · Medium") used when
+  /// [selectedVariants] is empty — that's the case for quick-add
+  /// items from the home card, which only populate the label and
+  /// leave the structured map blank. The receipt falls back to this
+  /// so the variant name still appears on the bill.
+  final String? variantLabel;
+
+  /// Display strings for selected addons, pre-formatted for the bill —
+  /// e.g. `["+Mayonnaise", "+Extra Cheese ×2"]`. The checkout layer
+  /// builds these from each cart line's [CartItemAddon] list so the
+  /// success screen doesn't have to redo the formatting.
+  final List<String> addons;
+
   const PlacedOrderItem({
     required this.name,
     required this.image,
     required this.quantity,
     required this.price,
     this.selectedVariants = const {},
+    this.variantLabel,
+    this.addons = const [],
   });
 }

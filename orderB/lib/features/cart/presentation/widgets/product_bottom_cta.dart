@@ -8,6 +8,12 @@ import '../../../../core/constants.dart';
 class ProductBottomCta extends StatefulWidget {
   final int quantity;
   final double totalPrice;
+
+  /// Pre-discount sticker total. When non-null and greater than
+  /// [totalPrice], renders strikethrough next to the live price so the
+  /// customer sees the deal up front (instead of being surprised by a
+  /// lower number at checkout).
+  final double? stickerTotalPrice;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
   final VoidCallback onCheckout;
@@ -16,6 +22,7 @@ class ProductBottomCta extends StatefulWidget {
     super.key,
     required this.quantity,
     required this.totalPrice,
+    this.stickerTotalPrice,
     required this.onDecrement,
     required this.onIncrement,
     required this.onCheckout,
@@ -90,31 +97,60 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // ── Animated price (left) ─────────────────────────
+                    // Strikethrough sticker total sits above the
+                    // discounted total when a deal is active; otherwise
+                    // only the live price renders.
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          transitionBuilder: (child, anim) => SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.4),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                                parent: anim, curve: Curves.easeOut)),
-                            child: FadeTransition(opacity: anim, child: child),
-                          ),
-                          child: Text(
-                            AppConstants.formatPrice(widget.totalPrice),
-                            key: ValueKey(widget.totalPrice),
-                            style: Theme.of(context)
-                                .textTheme
-                                .displaySmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: cs.onSurface,
-                                  letterSpacing: -0.5,
-                                ),
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (widget.stickerTotalPrice != null &&
+                                widget.stickerTotalPrice! >
+                                    widget.totalPrice) ...[
+                              Text(
+                                AppConstants.formatPrice(
+                                    widget.stickerTotalPrice!),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                      decoration: TextDecoration.lineThrough,
+                                      height: 1.0,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                            ],
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              transitionBuilder: (child, anim) =>
+                                  SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.4),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                    parent: anim, curve: Curves.easeOut)),
+                                child: FadeTransition(
+                                    opacity: anim, child: child),
+                              ),
+                              child: Text(
+                                AppConstants.formatPrice(widget.totalPrice),
+                                key: ValueKey(widget.totalPrice),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displaySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: cs.onSurface,
+                                      letterSpacing: -0.5,
+                                      height: 1.0,
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

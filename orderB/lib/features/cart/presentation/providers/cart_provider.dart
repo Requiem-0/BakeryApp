@@ -108,6 +108,87 @@ class CartProvider extends ChangeNotifier {
   bool contains(Product product) =>
       _items.any((i) => i.product.id == product.id);
 
+  /// Quantity in cart for a specific (product, variant, addons) tuple.
+  /// Returns 0 when no line matches.
+  ///
+  /// When [addons] is null, sums across every addon combination of
+  /// the same product+variant — useful for surfaces (e.g. the home
+  /// card stepper) that don't track a specific configuration. When
+  /// non-null, only the line with the exact same addon set counts;
+  /// this is what the detail screen wants so its stepper reflects
+  /// the customer's CURRENT picker selection, not unrelated lines.
+  int qtyOf({
+    required String productId,
+    String? variantItemId,
+    Map<String, int>? addons,
+  }) {
+    if (addons == null) {
+      return _items
+          .where((i) =>
+              i.product.id == productId && i.variantItemId == variantItemId)
+          .fold(0, (sum, i) => sum + i.quantity);
+    }
+    final idx = _items.indexWhere(
+      (i) =>
+          i.product.id == productId &&
+          i.variantItemId == variantItemId &&
+          _addonsMatch(i.addons, addons),
+    );
+    return idx >= 0 ? _items[idx].quantity : 0;
+  }
+
+  /// Decrement the cart line matching the given product + variant +
+  /// (optional) addons by one. Removes the line entirely when its
+  /// quantity would drop to zero. Returns false when no matching
+  /// line exists.
+  Future<bool> decrementVariantLine({
+    required String productId,
+    String? variantItemId,
+    Map<String, int>? addons,
+  }) async {
+    final idx = _items.indexWhere(
+      (i) =>
+          i.product.id == productId &&
+          i.variantItemId == variantItemId &&
+          (addons == null || _addonsMatch(i.addons, addons)),
+    );
+    if (idx < 0) return false;
+    final newQty = _items[idx].quantity - 1;
+    if (newQty <= 0) return removeAt(idx);
+    return updateQuantity(idx, newQty);
+  }
+
+  /// Default variant selection used by [addProduct] when the caller
+  /// didn't specify one (quick-add from the home card). Picks the
+  /// variant whose price matches `product.price` — that's the number
+  /// the customer saw on the card, and getting a different variant
+  /// added to the cart is a confusing surprise. Falls back to the
+  /// cheapest variant, then to the first.
+  VariantItem? _defaultVariantFor(Product product) {
+    final items = product.variantItems;
+    if (items.isEmpty) return null;
+    for (final v in items) {
+      if (v.price == product.price) return v;
+    }
+    return items.reduce((a, b) => a.price <= b.price ? a : b);
+  }
+
+  /// True when [existing] cart-line addons match the [requested] addon
+  /// map exactly — same set of addon ids with the same quantity each.
+  /// Used by [addProduct] to keep distinct addon combinations as
+  /// distinct cart lines instead of silently merging "Egg + Mayo"
+  /// and "Egg + Cheese" into one.
+  bool _addonsMatch(
+    List<CartItemAddon> existing,
+    Map<String, int> requested,
+  ) {
+    if (existing.length != requested.length) return false;
+    for (final a in existing) {
+      if (requested[a.addonId] != a.quantity) return false;
+    }
+    return true;
+  }
+
   /// Re-resolves each line's [Product] against the catalogue. Used when
   /// the catalogue finishes loading AFTER the cart already hydrated —
   /// without this, lines that landed during the loading window keep
@@ -237,15 +318,19 @@ class CartProvider extends ChangeNotifier {
     int quantity = 1,
     Map<String, String> selectedVariants = const {},
   }) async {
-    final effectiveVariant = variant ??
-        (product.variantItems.isNotEmpty ? product.variantItems.first : null);
+    final effectiveVariant = variant ?? _defaultVariantFor(product);
     final effectiveAddons = _buildLocalAddons(product, addons);
 
     // ── Optimistic local update ──────────────────────────────────
+    // Dedupe key is (productId, variantItemId, addons). Two lines
+    // with the same product+variant but different addons stay
+    // separate so "Egg + Mayo" and "Egg + Cheese" don't silently
+    // merge into one mystery-line that loses one of the addon sets.
     final snapshot = _snapshot();
     final existingIdx = _items.indexWhere((i) =>
         i.product.id == product.id &&
-        i.variantItemId == effectiveVariant?.id);
+        i.variantItemId == effectiveVariant?.id &&
+        _addonsMatch(i.addons, addons));
 
     if (existingIdx >= 0) {
       _items[existingIdx].quantity += quantity;

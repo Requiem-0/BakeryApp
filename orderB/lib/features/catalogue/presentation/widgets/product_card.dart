@@ -62,41 +62,16 @@ class ProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  // Product image (network with emoji fallback) +
-                  // discount badge when an applyEverytime rule is set.
-                  Stack(
-                    children: [
-                      ProductImageBox(
-                        imageUrl: product.imageUrl,
-                        emojiFallback: product.image,
-                        emojiFontSize: 40,
-                        width: 90,
-                        height: 90,
-                      ),
-                      if (product.autoDiscount != null)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: colors.error,
-                              borderRadius: BorderRadius.circular(
-                                  AppDecorations.radiusXS),
-                            ),
-                            child: Text(
-                              product.autoDiscount!.badgeLabel,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onError,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 7,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                  // Product image (network with emoji fallback). The
+                  // discount badge that used to sit here is gone —
+                  // the strikethrough original price in the price row
+                  // below carries the same signal more cleanly.
+                  ProductImageBox(
+                    imageUrl: product.imageUrl,
+                    emojiFallback: product.image,
+                    emojiFontSize: 40,
+                    width: 90,
+                    height: 90,
                   ),
                   const SizedBox(width: 16),
                   // Text column
@@ -141,16 +116,44 @@ class ProductCard extends StatelessWidget {
                             ],
                           ),
                           Text(product.time, style: theme.textTheme.labelSmall),
-                          // Price
+                          // Price — sticker (product.price) struck
+                          // through next to the discounted price when
+                          // an autoDiscount rule is set. Skipped when
+                          // priceOverride is set (cart surfaces show
+                          // the actual paid price directly).
                           Expanded(
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Text(
-                                AppConstants.formatPrice(
-                                    priceOverride ?? product.price),
-                                style: AppTextStyles.price.copyWith(
-                                    color: colors.primary),
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  if (priceOverride == null &&
+                                      product.discountedPrice != null) ...[
+                                    Text(
+                                      AppConstants.formatPrice(product.price),
+                                      style: AppTextStyles.price.copyWith(
+                                        color: colors.onSurfaceVariant,
+                                        decoration:
+                                            TextDecoration.lineThrough,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      AppConstants.formatPrice(
+                                          priceOverride ??
+                                              product.discountedPrice ??
+                                              product.price),
+                                      style: AppTextStyles.price.copyWith(
+                                          color: colors.primary),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

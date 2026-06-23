@@ -39,7 +39,10 @@ class GridProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image area
+            // Image area. The discount badge that used to sit
+            // top-left is gone — the strikethrough original price in
+            // the price row below carries the same signal more
+            // cleanly.
             Stack(
               children: [
                 ProductImageBox(
@@ -49,32 +52,6 @@ class GridProductCard extends StatelessWidget {
                   width: double.infinity,
                   height: 100,
                 ),
-
-                // Discount badge — top-left, only when the product has
-                // an applyEverytime rule the backend will honor.
-                if (product.autoDiscount != null)
-                  Positioned(
-                    top: 14,
-                    left: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: colors.error,
-                        borderRadius:
-                            BorderRadius.circular(AppDecorations.radiusXS),
-                      ),
-                      child: Text(
-                        product.autoDiscount!.badgeLabel,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onError,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 7,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                  ),
 
                 // Favourite button
                 Positioned(
@@ -129,9 +106,27 @@ class GridProductCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
+                      // Price — sticker (product.price) struck through
+                      // beside the discounted price when an autoDiscount
+                      // rule is set. Grid layout is tight, so the
+                      // strikethrough is small and the discounted price
+                      // gets the Expanded slot.
+                      if (product.discountedPrice != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Text(
+                            AppConstants.formatPrice(product.price),
+                            style: AppTextStyles.price.copyWith(
+                              color: colors.onSurfaceVariant,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
                       Expanded(
                         child: Text(
-                          AppConstants.formatPrice(product.price),
+                          AppConstants.formatPrice(
+                              product.discountedPrice ?? product.price),
                           style: AppTextStyles.price.copyWith(
                               color: colors.primary),
                           overflow: TextOverflow.ellipsis,

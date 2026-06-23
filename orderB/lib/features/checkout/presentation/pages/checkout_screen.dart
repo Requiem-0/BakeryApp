@@ -130,12 +130,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Per-unit price the customer ACTUALLY paid (variant + addons).
         final addonPerUnit = i.addons
             .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
+        // Pre-format addon labels for the receipt: "+Name" or
+        // "+Name ×N" when the customer added more than one of a
+        // single addon. Matches the invoice sheet's existing format
+        // so the bill reads the same before and after placing.
+        final addonLabels = i.addons
+            .map((a) =>
+                a.quantity > 1 ? '+${a.name} ×${a.quantity}' : '+${a.name}')
+            .toList(growable: false);
         return PlacedOrderItem(
           name: i.product.name,
           image: i.product.imageUrl ?? i.product.image,
           quantity: i.quantity,
           price: i.unitPrice + addonPerUnit,
           selectedVariants: i.selectedVariants,
+          variantLabel: i.variantItemLabel,
+          addons: addonLabels,
         );
       }).toList(),
       subtotal: subtotalPre,
@@ -162,6 +172,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const TextStyle();
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
+    // Post-discount totals throughout — line items render their
+    // discounted lineTotal (variant + addons + discount), so the
+    // Subtotal must also be post-discount or the math wouldn't
+    // visually add up. Clean bill format — no separate discount line.
     final subtotal = cart.subtotal;
     final total = cart.total;
 
@@ -174,11 +188,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: SafeArea(
         child: cart.items.isEmpty
             ? const EmptyCartView()
-            : Stack(
+            : Column(
                 children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 140),
-                    child: Column(
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ─── Receipt Card ─────────────────────────
@@ -280,26 +295,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       SizedBox(
                                         width: 56,
                                         child: Text(
-                                          (item.product.price * item.quantity)
-                                              .toStringAsFixed(0),
+                                          // Post-discount line total
+                                          // including variant + addons.
+                                          // product.price would miss
+                                          // variant selection, addons,
+                                          // and the autoDiscount rule.
+                                          item.lineTotal.toStringAsFixed(0),
                                           style: receiptStyle,
                                           textAlign: TextAlign.right,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  if (item.selectedVariants.isNotEmpty)
-                                    Padding(
+                                  // Variant + addons subtitle. Built
+                                  // as a parts list so a single " · "
+                                  // joiner handles every combination
+                                  // (variant only, addons only, both).
+                                  //
+                                  // Falls back to variantItemLabel
+                                  // when the structured selectedVariants
+                                  // map is empty — that's the case for
+                                  // quick-adds from the home card,
+                                  // which only populate the flat label.
+                                  Builder(builder: (_) {
+                                    final variantText =
+                                        item.selectedVariants.isNotEmpty
+                                            ? item.selectedVariants.entries
+                                                .map((e) =>
+                                                    '${e.key}: ${e.value}')
+                                                .join(' · ')
+                                            : (item.variantItemLabel ?? '');
+                                    final parts = <String>[
+                                      if (variantText.isNotEmpty) variantText,
+                                      for (final a in item.addons)
+                                        a.quantity > 1
+                                            ? '+${a.name} ×${a.quantity}'
+                                            : '+${a.name}',
+                                    ];
+                                    if (parts.isEmpty) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
                                       padding: const EdgeInsets.only(
                                           left: 4, top: 2),
                                       child: Text(
-                                        item.selectedVariants.entries
-                                            .map((e) => '${e.key}: ${e.value}')
-                                            .join(' · '),
+                                        parts.join(' · '),
                                         style: headerStyle.copyWith(
                                             fontSize: 10),
                                       ),
-                                    ),
+                                    );
+                                  }),
                                     ],
                                   ),
                                 );
@@ -382,13 +427,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ],
                     ),
+                    ),
                   ),
 
-                  // CTA Button
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                  // CTA Button — in layout flow (sibling of the
+                  // scrollable, not floating over it). Same structure
+                  // as the cart screen's Checkout button so both
+                  // bottom-CTA pages feel identical.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                     child: PrimaryButton(
                       label: _isPlacing
                           ? 'Placing Order...'

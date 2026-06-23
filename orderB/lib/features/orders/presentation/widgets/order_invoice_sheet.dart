@@ -169,22 +169,9 @@ class OrderInvoiceSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 Divider(height: 1, color: theme.dividerColor),
                 const SizedBox(height: 12),
-                // Discount row when an applyEverytime rule fired
-                if (order.discount > 0) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Discount',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: colors.error)),
-                      Text('− ${AppConstants.formatPrice(order.discount)}',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: colors.error)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                // Total
+                // Total — lineTotals above already render post-discount
+                // (item.unitTotal × qty), so they sum to order.total.
+                // Clean bill format — no separate discount line.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
