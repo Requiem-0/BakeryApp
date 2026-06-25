@@ -172,11 +172,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const TextStyle();
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
-    // Post-discount totals throughout — line items render their
-    // discounted lineTotal (variant + addons + discount), so the
-    // Subtotal must also be post-discount or the math wouldn't
-    // visually add up. Clean bill format — no separate discount line.
-    final subtotal = cart.subtotal;
+    // Standard bill math: Subtotal is GROSS (pre-discount), Discount
+    // row subtracts, Grand Total ends up post-discount. cart.subtotal
+    // is already post-discount, so we add discountTotal back in to
+    // recover the gross. Each line's Amt column still shows its
+    // post-discount lineTotal — the per-line savings are reflected
+    // in the gap between Subtotal and Grand Total.
+    final discount = cart.discountTotal;
+    final subtotal = cart.subtotal + discount;
     final total = cart.total;
 
     return Scaffold(
@@ -361,6 +364,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       style: receiptStyle),
                                 ],
                               ),
+                              // Discount row — only when an
+                              // applyEverytime rule fired on a line.
+                              // Full-price orders skip the line so
+                              // the bill stays clean.
+                              if (discount > 0) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Discount', style: headerStyle),
+                                    Text(
+                                      '− ${AppConstants.formatPrice(discount)}',
+                                      style: receiptStyle.copyWith(
+                                          color: colors.error),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Row(
                                 mainAxisAlignment:

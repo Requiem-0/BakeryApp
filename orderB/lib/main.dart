@@ -180,6 +180,13 @@ Future<void> main() async {
   // to their full catalogue versions. Without this, the discount badge
   // and the receipt's discount row silently come up empty.
   catalogueProvider.addListener(cartProvider.rehydrateProducts);
+  // Restore any locally-persisted cart BEFORE backend bootstrap fires,
+  // so guests (and authed users with a slow network) see their items
+  // immediately on app start instead of an empty cart. Authed
+  // bootstrap will overwrite this with the server-canonical cart.
+  cartProvider.tryLoadLocalCart().catchError((e, st) {
+    debugPrint('🚨 Cart local restore failed: $e\n$st');
+  });
   cartProvider.bootstrap().catchError((e, st) {
     debugPrint('🚨 Cart bootstrap failed: $e\n$st');
   });

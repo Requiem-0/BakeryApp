@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants.dart';
 import '../../../catalogue/data/models/product.dart';
@@ -6,6 +9,12 @@ import '../../../orders/data/models/order.dart';
 import '../../data/models/api_cart.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/repositories/cart_repository.dart';
+
+/// SharedPreferences key for the locally-persisted cart snapshot.
+/// Bumped via the `_v1` suffix if the shape ever changes — older
+/// payloads decode safely (try/catch wraps the decode) but the user
+/// loses their old cart, which is acceptable for a one-time migration.
+const String _kCartLocalKey = 'cart:local_items_v1';
 
 /// Cart state with two modes: authed users round-trip every mutation
 /// through `/api/cart/*` (local state is optimistic); guests get a pure
@@ -192,8 +201,15 @@ class CartProvider extends ChangeNotifier {
   /// Re-resolves each line's [Product] against the catalogue. Used when
   /// the catalogue finishes loading AFTER the cart already hydrated —
   /// without this, lines that landed during the loading window keep
-  /// their thin Product (no `autoDiscount`, no variantItems, no addons)
-  /// and the discount badge + receipt math silently break.
+  /// their thin Product (no image, no `autoDiscount`, no variantItems,
+  /// no addons) and the cart shows fork-and-knife placeholders next
+  /// to broken discount/receipt math.
+  ///
+  /// The catalogue is the canonical source for product data, so we
+  /// swap whenever it has a match. The cart's prior Product copy
+  /// might have come from a thinner backend cart payload (productId
+  /// + name + adminId but no image), in which case the catalogue
+  /// version is strictly more complete.
   void rehydrateProducts() {
     if (_items.isEmpty || _productResolver == null) return;
     bool changed = false;
@@ -201,12 +217,9 @@ class CartProvider extends ChangeNotifier {
       final current = _items[i];
       final resolved = _productResolver!(current.product.id);
       if (resolved == null) continue;
-      // Skip when the current product already has the data we'd swap in.
-      final currentHasData = current.product.adminId != null ||
-          current.product.autoDiscount != null ||
-          current.product.variantItems.isNotEmpty ||
-          current.product.addons.isNotEmpty;
-      if (currentHasData) continue;
+      // Identity skip — if the resolved product is the exact same
+      // instance already held, nothing changed.
+      if (identical(resolved, current.product)) continue;
       _items[i] = CartItem(
         product: resolved,
         quantity: current.quantity,
@@ -301,6 +314,13 @@ class CartProvider extends ChangeNotifier {
       debugPrint('🚨 CartProvider.bootstrap: $e');
     } finally {
       _isLoading = false;
+      // Backend cart responses ship thin Products (id + name + maybe
+      // adminId), so swap in the full catalogue version for image,
+      // discount, variants, addons. The catalogue→cart listener only
+      // covers the case where catalogue lands AFTER cart; this call
+      // covers the reverse — catalogue already loaded when cart
+      // finishes hydrating.
+      rehydrateProducts();
       notifyListeners();
     }
   }
@@ -335,13 +355,39 @@ class CartProvider extends ChangeNotifier {
     if (existingIdx >= 0) {
       _items[existingIdx].quantity += quantity;
     } else {
+      // Compute post-discount unit + addon prices so guests see the
+      // same math the backend would produce. Without this, guests
+      // pay the sticker price (Almond Water = Rs 100 instead of
+      // Rs 90 — autoDiscount never gets applied because there's no
+      // backend round-trip to write back the post-discount unitPrice).
+      // Authed carts overwrite both via _replaceItemsFrom; doing it
+      // locally first means the receipt math still adds up during the
+      // optimistic window before the response lands.
+      final stickerUnit = effectiveVariant?.price ?? product.price;
+      final disc = product.autoDiscount;
+      final unitPrice = disc?.apply(stickerUnit) ?? stickerUnit;
+      // Percentage rate applies to addons too (mirrors
+      // discountTotal's reverse-projection); flat discounts only
+      // knock the rate off the unit, addons unchanged.
+      final finalAddons = (disc != null &&
+              disc.type == 'percentage' &&
+              disc.rate > 0)
+          ? effectiveAddons
+              .map((a) => CartItemAddon(
+                    addonId: a.addonId,
+                    name: a.name,
+                    quantity: a.quantity,
+                    unitPrice: disc.apply(a.unitPrice),
+                  ))
+              .toList()
+          : effectiveAddons;
       _items.add(CartItem(
         product: product,
         quantity: quantity,
         variantItemId: effectiveVariant?.id,
         variantItemLabel: effectiveVariant?.label,
-        unitPrice: effectiveVariant?.price ?? product.price,
-        addons: effectiveAddons,
+        unitPrice: unitPrice,
+        addons: finalAddons,
         selectedVariants: selectedVariants,
       ));
     }
@@ -619,6 +665,113 @@ class CartProvider extends ChangeNotifier {
     _items
       ..clear()
       ..addAll(next);
+  }
+
+  // ── Local persistence ─────────────────────────────────────────────────────
+
+  /// Restore the cart from a SharedPreferences-backed JSON snapshot.
+  /// Wired from main.dart at app startup so a hot-restart / cold-start
+  /// doesn't drop the cart on the floor — applies to BOTH guests
+  /// (whose cart lives only client-side) and authed users (whose
+  /// backend cart may not have synced back yet when the splash
+  /// finishes). Once authed bootstrap runs and the backend cart
+  /// arrives, [_replaceItemsFrom] overwrites whatever this restored.
+  ///
+  /// Restored products are thin (just the fields we serialized);
+  /// [rehydrateProducts] swaps them with full catalogue Products
+  /// once the catalogue finishes loading.
+  Future<void> tryLoadLocalCart() async {
+    if (_items.isNotEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kCartLocalKey);
+      if (raw == null || raw.isEmpty) return;
+      final List<dynamic> data = jsonDecode(raw) as List<dynamic>;
+      for (final m in data) {
+        final map = (m as Map).cast<String, dynamic>();
+        final product = Product(
+          id: map['productId'] as String,
+          name: (map['productName'] as String?) ?? 'Product',
+          category: '',
+          price: (map['productPrice'] as num?)?.toDouble() ?? 0,
+          reviews: 0,
+          image: (map['productImage'] as String?) ?? '🍴',
+          imageUrl: map['productImageUrl'] as String?,
+          description: '',
+          tags: const [],
+          time: '',
+        );
+        _items.add(CartItem(
+          product: product,
+          quantity: (map['quantity'] as num).toInt(),
+          variantItemId: map['variantItemId'] as String?,
+          variantItemLabel: map['variantItemLabel'] as String?,
+          unitPrice: (map['unitPrice'] as num?)?.toDouble() ?? product.price,
+          serverItemId: map['serverItemId'] as String?,
+          selectedVariants: ((map['selectedVariants'] as Map?) ?? const {})
+              .map((k, v) => MapEntry(k.toString(), v.toString())),
+          addons: ((map['addons'] as List?) ?? const [])
+              .map((a) {
+                final am = (a as Map).cast<String, dynamic>();
+                return CartItemAddon(
+                  addonId: am['addonId'] as String,
+                  name: (am['name'] as String?) ?? '',
+                  quantity: (am['quantity'] as num?)?.toInt() ?? 1,
+                  unitPrice: (am['unitPrice'] as num?)?.toDouble() ?? 0,
+                );
+              })
+              .toList(),
+        ));
+      }
+      rehydrateProducts();
+      super.notifyListeners();
+    } catch (e) {
+      debugPrint('🚨 CartProvider.tryLoadLocalCart: $e');
+    }
+  }
+
+  /// Serializes the current cart to JSON and writes it to
+  /// SharedPreferences. Fire-and-forget — failures are swallowed
+  /// because losing one save doesn't break anything (next mutation
+  /// re-saves).
+  void _saveLocal() {
+    final data = _items
+        .map((i) => {
+              'productId': i.product.id,
+              'productName': i.product.name,
+              'productImage': i.product.image,
+              'productImageUrl': i.product.imageUrl,
+              'productPrice': i.product.price,
+              'quantity': i.quantity,
+              'variantItemId': i.variantItemId,
+              'variantItemLabel': i.variantItemLabel,
+              'unitPrice': i.unitPrice,
+              'serverItemId': i.serverItemId,
+              'selectedVariants': i.selectedVariants,
+              'addons': i.addons
+                  .map((a) => {
+                        'addonId': a.addonId,
+                        'name': a.name,
+                        'quantity': a.quantity,
+                        'unitPrice': a.unitPrice,
+                      })
+                  .toList(),
+            })
+        .toList();
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_kCartLocalKey, jsonEncode(data)));
+  }
+
+  /// Persist on every notify. ChangeNotifier dispatches this on
+  /// every state change (mutation, loading toggle, error update); we
+  /// piggyback to keep the local snapshot fresh without sprinkling
+  /// _saveLocal() calls across a dozen mutation methods. The extra
+  /// writes on non-mutation notifies are cheap (SharedPreferences
+  /// batches in memory) and have no semantic effect.
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _saveLocal();
   }
 
   /// Maps `addonId → qty` (the format used by the API) into the local
