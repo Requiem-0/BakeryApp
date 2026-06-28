@@ -40,7 +40,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/animations/
-    - assets/branding/
+    # Logo lives next to the rest of the brand system (colors,
+    # typography, theme) in lib/core/brandkit/ rather than under
+    # assets/, so all brand-related stuff is in one folder. Declared
+    # as a single file because declaring the directory would also
+    # bundle the .dart files in there as assets.
+    - lib/core/brandkit/bakery_logo.jpg
 
 # Generates Android launcher icons from the Breaking Bread logo. Run
 # `dart run flutter_launcher_icons` after touching this block. The
@@ -50,10 +55,10 @@ flutter:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: false
-  image_path: "assets/branding/bakery_logo.jpg"
+  image_path: "lib/core/brandkit/bakery_logo.jpg"
   min_sdk_android: 21
   adaptive_icon_background: "#F5F0E8"
-  adaptive_icon_foreground: "assets/branding/bakery_logo.jpg"
+  adaptive_icon_foreground: "lib/core/brandkit/bakery_logo.jpg"
 
 # Android pre-Flutter splash. Background-only — no logo here. The raw
 # JPG asset has a white square baked in, which reads as an "incomplete

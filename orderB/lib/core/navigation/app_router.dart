@@ -274,7 +274,7 @@ class _SplashAssetLogo extends StatelessWidget {
       );
     }
     return Image.asset(
-      'assets/branding/bakery_logo.jpg',
+      'lib/core/brandkit/bakery_logo.jpg',
       width: 140,
       height: 140,
       fit: BoxFit.cover,
