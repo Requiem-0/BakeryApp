@@ -37,7 +37,7 @@ if (hasUploadKeystore) {
 }
 
 android {
-    namespace = "com.brandbuilder.breakingbreadbakery"
+    namespace = "com.brandbuilder.breakingbread"
     // compileSdk follows whichever Android SDK our plugins are built
     // against — multiple Flutter plugins (geolocator, package_info_plus,
     // shared_preferences, sqflite) compile against 36, so we match.
@@ -60,7 +60,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.brandbuilder.breakingbreadbakery"
+        applicationId = "com.brandbuilder.breakingbread"
         // Android 6 (Marshmallow). Covers ~99% of active devices in
         // Nepal and gives us runtime permission APIs by default.
         minSdk = flutter.minSdkVersion
