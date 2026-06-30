@@ -68,7 +68,24 @@ class FavouritesScreen extends StatelessWidget {
                       catProv.loadAllProducts(),
                     ]);
                   },
-                  child: favs.isEmpty
+                  // Three states:
+                  // 1. Favourites exist BUT catalogue hasn't loaded yet
+                  //    → spinner. Without this, the user sees "No
+                  //    favourites yet" on every cold start until the
+                  //    catalogue fetch lands, even though their hearted
+                  //    IDs are sitting in SharedPreferences.
+                  // 2. Truly no favourites → empty state.
+                  // 3. Has favourites + catalogue ready → grid.
+                  child: favs.isEmpty &&
+                          favProv.favourites.isNotEmpty &&
+                          catProv.products.isEmpty
+                      ? Center(
+                          child: CircularProgressIndicator(
+                            color: Theme.of(context).colorScheme.primary,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : favs.isEmpty
                     ? LayoutBuilder(
                         builder: (context, constraints) =>
                             SingleChildScrollView(

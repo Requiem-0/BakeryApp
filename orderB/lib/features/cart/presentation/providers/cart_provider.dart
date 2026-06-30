@@ -220,11 +220,24 @@ class CartProvider extends ChangeNotifier {
       // Identity skip — if the resolved product is the exact same
       // instance already held, nothing changed.
       if (identical(resolved, current.product)) continue;
+      // Re-resolve the variant label from the newly-resolved product
+      // when the current label is null but a variantItemId is set —
+      // covers the case where the cart came in with an unexpanded
+      // variant object and we now have the full variantItems list.
+      String? variantLabel = current.variantItemLabel;
+      if (variantLabel == null && current.variantItemId != null) {
+        for (final v in resolved.variantItems) {
+          if (v.id == current.variantItemId) {
+            variantLabel = v.label;
+            break;
+          }
+        }
+      }
       _items[i] = CartItem(
         product: resolved,
         quantity: current.quantity,
         variantItemId: current.variantItemId,
-        variantItemLabel: current.variantItemLabel,
+        variantItemLabel: variantLabel,
         unitPrice: current.unitPrice,
         addons: current.addons,
         serverItemId: current.serverItemId,
@@ -645,11 +658,27 @@ class CartProvider extends ChangeNotifier {
             time: '',
           );
 
+      // POST/PUT cart responses sometimes return `variantProduct` as
+      // just an id string, not the expanded `{ _id, optionValues }`
+      // object — so [line.variantItemLabel] comes back null even
+      // though a variant is selected. Recover the label from the
+      // resolved product's variantItems list so the cart screen +
+      // bill keep showing which variant each line is.
+      String? variantLabel = line.variantItemLabel;
+      if (variantLabel == null && line.variantItemId != null) {
+        for (final v in product.variantItems) {
+          if (v.id == line.variantItemId) {
+            variantLabel = v.label;
+            break;
+          }
+        }
+      }
+
       next.add(CartItem(
         product: product,
         quantity: line.quantity,
         variantItemId: line.variantItemId,
-        variantItemLabel: line.variantItemLabel,
+        variantItemLabel: variantLabel,
         unitPrice: line.unitPrice,
         addons: line.addons
             .map((a) => CartItemAddon(
