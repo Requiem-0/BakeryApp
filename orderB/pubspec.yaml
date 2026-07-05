@@ -6,7 +6,7 @@ publish_to: 'none'
 # Bump the build number on EVERY upload to Play Store — duplicates
 # are rejected. The semver is what shows in the store listing; the
 # build number is what the Play Console keys releases off.
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
