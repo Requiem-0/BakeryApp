@@ -13,16 +13,15 @@ import '../widgets/profile_shared_widgets.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  Future<void> _confirmDeactivate(BuildContext context) async {
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Deactivate account?'),
+        title: const Text('Delete account?'),
         content: const Text(
-          'Your account will be deactivated and you will be signed out. '
-          'You can reactivate it later by signing in again with the same '
-          'email or phone.',
+          'Your account will be permanently disabled and you will be '
+          'signed out. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -34,7 +33,7 @@ class SettingsScreen extends StatelessWidget {
             style: TextButton.styleFrom(
               foregroundColor: theme.colorScheme.error,
             ),
-            child: const Text('Deactivate'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -45,12 +44,11 @@ class SettingsScreen extends StatelessWidget {
     final ok = await auth.deactivate();
     if (!context.mounted) return;
     if (ok) {
-      AppToast.info(
-          context, 'Account deactivated. Sign in to reactivate it.');
+      AppToast.error(context, 'Account deleted.');
       context.go('/home');
     } else {
       AppToast.error(
-          context, auth.errorMessage ?? 'Could not deactivate account');
+          context, auth.errorMessage ?? 'Could not delete account');
     }
   }
 
@@ -112,11 +110,11 @@ class SettingsScreen extends StatelessWidget {
                       _buildLinkRow(
                         context,
                         Icons.person_off_outlined,
-                        'Deactivate Account',
+                        'Delete Account',
                         null,
                         destructive: true,
                         showDivider: false,
-                        onTap: () => _confirmDeactivate(context),
+                        onTap: () => _confirmDeleteAccount(context),
                       ),
                     ]),
                   ],

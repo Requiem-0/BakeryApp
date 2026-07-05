@@ -54,32 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // login with the same credentials on confirm.
     final message = authProvider.errorMessage ?? 'Login failed';
     if (_looksLikeDeactivated(message)) {
-      final confirmed = await _confirmReactivate();
-      if (!mounted) return;
-      if (confirmed != true) {
-        AppToast.error(context, message);
-        return;
-      }
-      final reactivated =
-          await authProvider.reactivate(emailOrPhone: emailOrPhone);
-      if (!mounted) return;
-      if (!reactivated) {
-        AppToast.error(context,
-            authProvider.errorMessage ?? 'Could not reactivate account');
-        return;
-      }
-      final retryOk = await authProvider.login(
-        emailOrPhone: emailOrPhone,
-        password: password,
-      );
-      if (!mounted) return;
-      if (retryOk) {
-        AppToast.success(context, 'Welcome back!');
-        _onLoginSuccess();
-      } else {
-        AppToast.error(context,
-            authProvider.errorMessage ?? 'Login failed after reactivation');
-      }
+      AppToast.error(context, 'This account has been deleted.');
       return;
     }
 
@@ -103,32 +78,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _looksLikeDeactivated(String message) {
     return message.toLowerCase().contains('deactivat');
-  }
-
-  Future<bool?> _confirmReactivate() {
-    final theme = Theme.of(context);
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Account deactivated'),
-        content: const Text(
-          'This account has been deactivated. Reactivate it and sign in?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
-            ),
-            child: const Text('Reactivate'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
