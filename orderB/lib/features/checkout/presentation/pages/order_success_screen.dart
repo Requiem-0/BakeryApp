@@ -5,6 +5,7 @@ import '../../../../shared/widgets/item_image.dart';
 import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/constants.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
+import '../../../../core/utils/responsive.dart';
 
 class OrderSuccessScreen extends StatefulWidget {
   final PlacedOrder order;
@@ -51,7 +52,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: Responsive.horizontalPadding(context)),
           child: Column(
             children: [
               const Spacer(flex: 2),

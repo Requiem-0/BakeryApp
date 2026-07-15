@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/service_icon.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/profile_shared_widgets.dart';
+import '../../../../core/utils/responsive.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -161,7 +162,7 @@ class SettingsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 20),
               child: Row(
                 children: [
                   const AppBackButton(),
@@ -172,7 +173,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 40),
                 children: [
                   const SectionLabel('APPEARANCE'),
                   const SizedBox(height: 8),

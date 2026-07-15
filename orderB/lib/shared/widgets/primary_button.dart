@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/brandkit/app_theme.dart';
+import '../../core/utils/responsive.dart';
 
-/// Full-width gradient primary CTA button.
+/// Full-width gradient primary CTA button. Max width constrained to 500px
+/// on tablets/desktop so buttons don't stretch comically wide.
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -20,37 +22,44 @@ class PrimaryButton extends StatelessWidget {
     final colors = theme.colorScheme;
     final gradient = theme.extension<AppThemeExtension>()?.primaryGradient;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: colors.primary.withValues(alpha: 0.25),
-              blurRadius: 30,
-              offset: const Offset(0, 8),
-            ),
-          ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500 * Responsive.scale(context),
         ),
-        alignment: Alignment.center,
-        child: isLoading
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: colors.onPrimary,
-                  strokeWidth: 2,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.25),
+                  blurRadius: 30,
+                  offset: const Offset(0, 8),
                 ),
-              )
-            : Text(label,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: colors.onPrimary,
-                  letterSpacing: 0.5,
-                )),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: isLoading
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: colors.onPrimary,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(label,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: colors.onPrimary,
+                      letterSpacing: 0.5,
+                    )),
+          ),
+        ),
       ),
     );
   }
@@ -68,21 +77,28 @@ class SecondaryButton extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.primary, width: 1.5),
-          borderRadius: BorderRadius.circular(16),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500 * Responsive.scale(context),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.primary,
-            fontWeight: FontWeight.w500,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
       ),

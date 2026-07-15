@@ -18,6 +18,7 @@ import '../../../../core/brandkit/app_decorations.dart';
 import '../../../../core/brandkit/app_text_styles.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants.dart';
+import '../../../../core/utils/responsive.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -116,7 +117,7 @@ class CartScreen extends StatelessWidget {
                     // short-circuits without a token.
                     onRefresh: () => cart.bootstrap(),
                     child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                    padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 16),
                     children: [
                       // "Clear all" mirrors the OrderCard's "Reorder"
                       // text-link style: underlined, no icon, no
@@ -337,7 +338,7 @@ class CartScreen extends StatelessWidget {
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 8),
                 child: PrimaryButton(
                   label: 'Checkout — ${AppConstants.formatPrice(cart.total)}',
                   onTap: () {

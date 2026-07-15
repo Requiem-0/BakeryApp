@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../notifications/data/models/api_notification.dart';
 import '../../../notifications/presentation/providers/notification_provider.dart';
+import '../../../../core/utils/responsive.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -21,7 +22,7 @@ class NotificationsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 20),
               child: Row(
                 children: [
                   const AppBackButton(),
@@ -76,7 +77,7 @@ class _NotificationsBody extends StatelessWidget {
       // Keep it scrollable so RefreshIndicator still works.
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+        padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 80, Responsive.horizontalPadding(context), 24),
         children: [
           const Center(child: Text('🔔', style: TextStyle(fontSize: 56))),
           const SizedBox(height: 12),
@@ -94,7 +95,7 @@ class _NotificationsBody extends StatelessWidget {
     }
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 24),
       itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, i) => _NotificationCard(

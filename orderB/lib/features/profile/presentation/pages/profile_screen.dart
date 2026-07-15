@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/service_icon.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
+import '../../../../core/utils/responsive.dart';
 
 /// Builds an onTap that pushes [path] for authed users, or `/login` for
 /// guests. After login, [LoginScreen] pops back so the tile they tapped
@@ -44,7 +45,7 @@ class ProfileScreen extends StatelessWidget {
           ]);
         },
         child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+        padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 100),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           Text('My Profile', style: Theme.of(context).textTheme.displayMedium),

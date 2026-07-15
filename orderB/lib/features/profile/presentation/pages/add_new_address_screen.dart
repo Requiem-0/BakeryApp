@@ -8,6 +8,7 @@ import '../../../../shared/widgets/primary_button.dart';
 import '../../../address/data/location_service.dart';
 import '../../../address/presentation/providers/address_provider.dart';
 import '../widgets/profile_shared_widgets.dart';
+import '../../../../core/utils/responsive.dart';
 
 class AddNewAddressScreen extends StatefulWidget {
   const AddNewAddressScreen({super.key});
@@ -107,7 +108,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 16),
               child: Row(
                 children: [
                   const AppBackButton(),
@@ -118,7 +119,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 120),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -147,7 +148,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 24),
               child: PrimaryButton(
                 label: 'Save Address',
                 onTap: _saving ? null : _save,

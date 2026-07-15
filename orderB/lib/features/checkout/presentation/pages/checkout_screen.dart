@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
 import '../../../../features/orders/presentation/providers/order_provider.dart';
 import '../../../../features/catalogue/presentation/providers/catalogue_provider.dart';
+import '../../../../core/utils/responsive.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -195,7 +196,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 16),
                       child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -457,7 +458,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // as the cart screen's Checkout button so both
                   // bottom-CTA pages feel identical.
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                    padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 8),
                     child: PrimaryButton(
                       label: _isPlacing
                           ? 'Placing Order...'

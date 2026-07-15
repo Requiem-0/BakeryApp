@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../address/presentation/providers/address_provider.dart';
+import '../../../../core/utils/responsive.dart';
 
 class _EmptyAddresses extends StatelessWidget {
   final VoidCallback onAdd;
@@ -65,7 +66,7 @@ class SavedAddressesScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 8, Responsive.horizontalPadding(context), 20),
               child: Row(
                 children: [
                   const AppBackButton(),
@@ -90,7 +91,7 @@ class SavedAddressesScreen extends StatelessWidget {
                       ],
                     )
                   : ListView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                padding: EdgeInsets.fromLTRB(Responsive.horizontalPadding(context), 0, Responsive.horizontalPadding(context), 24),
                 children: [
                   ...addresses.map((a) {
                     return Card(

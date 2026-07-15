@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../catalogue/data/models/category.dart';
 import '../../../catalogue/data/models/product.dart';
 import '../../../catalogue/presentation/providers/catalogue_provider.dart';
@@ -151,7 +152,9 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           // ── Header ──────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            padding: EdgeInsets.fromLTRB(
+                Responsive.horizontalPadding(context), 8,
+                Responsive.horizontalPadding(context), 0),
             child: AddressSelector(
               selectedId: addrProv.selectedId,
               onTap: _showAddressSheet,
@@ -162,7 +165,8 @@ class _HomeScreenState extends State<HomeScreen>
 
           // ── Search ───────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(
+                horizontal: Responsive.horizontalPadding(context)),
             child: _SearchBar(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
@@ -238,7 +242,9 @@ class _HomeScreenState extends State<HomeScreen>
               },
               child: ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+              padding: EdgeInsets.fromLTRB(
+                  Responsive.horizontalPadding(context), 0,
+                  Responsive.horizontalPadding(context), 100),
               children: [
                 // ── AI Tip ───────────────────────────────────────────────
                 const AiTip(),
