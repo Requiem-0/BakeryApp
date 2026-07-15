@@ -54,7 +54,7 @@ flutter:
 # that draw the foreground without the background (e.g. Pixel Launcher).
 flutter_launcher_icons:
   android: "ic_launcher"
-  ios: false
+  ios: true
   image_path: "lib/core/brandkit/bakery_logo.jpg"
   min_sdk_android: 21
   adaptive_icon_background: "#F5F0E8"
@@ -70,7 +70,7 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: "#F5F0E8"
   android: true
-  ios: false
+  ios: true
   web: false
   android_12:
     color: "#F5F0E8"

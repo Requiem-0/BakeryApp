@@ -31,13 +31,15 @@ import 'core/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hide the system status bar (clock / battery / notifications) so the
-  // app extends edge-to-edge at the top. Keep the bottom system nav so
-  // Android users still have back/home/recents. No-op on Web.
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: [SystemUiOverlay.bottom],
-  );
+  // Hide the system status bar on Android so the app extends edge-to-edge
+  // at the top. On iOS, Apple expects the status bar visible for non-
+  // immersive apps, so we keep it. Keep the bottom system nav on both.
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.bottom],
+    );
+  }
 
   // ── Firebase + Crashlytics ──────────────────────────────────────
   // Wrapped in try/catch so dev machines that don't have a

@@ -52,7 +52,8 @@ class LocationService {
         // Ignore any cached fix older than 5 seconds — forces a fresh
         // GPS read instead of accepting a stale "Baglung" hit from
         // hours ago.
-        forceAndroidLocationManager: true,
+        forceAndroidLocationManager:
+            defaultTargetPlatform == TargetPlatform.android,
       );
 
       final address = await _reverseGeocode(pos.latitude, pos.longitude);
