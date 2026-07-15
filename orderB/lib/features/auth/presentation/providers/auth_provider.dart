@@ -161,11 +161,30 @@ class AuthProvider extends ChangeNotifier {
         return true;
       });
 
-  /// Reactivates a deactivated account. Server returns no token, so the
-  /// caller (LoginScreen) is expected to follow up with a fresh `login()`
-  /// using the same credentials the user just typed.
-  Future<bool> reactivate({required String emailOrPhone}) =>
-      _runSimple(() => _repo.reactivate(emailOrPhone: emailOrPhone));
+  Future<bool> reactivate({
+    required String emailOrPhone,
+    required String password,
+  }) =>
+      _run(() async {
+        final result = await _repo.reactivate(
+          emailOrPhone: emailOrPhone,
+          password: password,
+        );
+        if (result.isFailure || result.data == null) {
+          _errorMessage = result.failure?.message ?? 'Reactivation failed.';
+          return false;
+        }
+        await _tokenStorage.write(result.data!);
+        final me = await _repo.getMe();
+        if (me.isFailure || me.data == null) {
+          await _tokenStorage.clear();
+          _errorMessage = me.failure?.message ?? 'Failed to load profile.';
+          return false;
+        }
+        _user = me.data;
+        _setStatus(AuthStatus.authenticated);
+        return true;
+      });
 
   /// Best-effort. Always clears local token + state, even if the API call
   /// fails (server might be offline; user still wants to be logged out).

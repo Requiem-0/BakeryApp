@@ -29,7 +29,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="Breaking Bread"
+        android:label="Pokhara Bakery"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

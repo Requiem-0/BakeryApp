@@ -8,7 +8,7 @@
 /// app so we don't need them to be reactive mid-session — bootstrap
 /// timing is enough.
 abstract final class AppConstants {
-  static String appName = 'Breaking Bread Bakery';
+  static String appName = 'Pokhara Bakery';
   static String currency = 'Rs';
 
   // ── Environment switch ────────────────────────────────────────────────────

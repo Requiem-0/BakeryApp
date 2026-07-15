@@ -99,12 +99,24 @@ class AuthRepository {
     }
   }
 
-  /// Server responds `{ success, message, customer }` — no token. Caller
-  /// is expected to follow up with a fresh `login()` for credentials.
-  Future<ApiResult<void>> reactivate({required String emailOrPhone}) async {
+  /// Reactivates a deactivated account. Returns the new sessionToken on
+  /// success so the caller can log the user in immediately.
+  Future<ApiResult<String>> reactivate({
+    required String emailOrPhone,
+    required String password,
+  }) async {
     try {
-      await _api.post('/auth/reactivate', body: {'emailOrPhone': emailOrPhone});
-      return ApiResult.success(null);
+      final res = await _api.post('/auth/reactivate', body: {
+        'emailOrPhone': emailOrPhone,
+        'password': password,
+      });
+      final token = _extractReactivateToken(res.data);
+      if (token == null) {
+        return ApiResult.failure(const ApiFailure(
+          message: 'Reactivation response did not contain a session token.',
+        ));
+      }
+      return ApiResult.success(token);
     } catch (e) {
       return ApiResult.failure(ApiClient.parseError(e));
     }
@@ -167,5 +179,33 @@ class AuthRepository {
     final raw = data['sessionToken'] ?? data['token'] ?? data['accessToken'];
     final str = raw?.toString().trim();
     return (str == null || str.isEmpty) ? null : str;
+  }
+
+  /// The prod `/auth/reactivate` response buries the token inside
+  /// `customer.hashRt[]` (an array of session objects). Falls back to
+  /// the top-level keys used by beta.
+  String? _extractReactivateToken(dynamic data) {
+    if (data is! Map) return null;
+
+    // Prod shape: customer.hashRt[last].token
+    final customer = data['customer'];
+    if (customer is Map) {
+      final hashRt = customer['hashRt'];
+      if (hashRt is List && hashRt.isNotEmpty) {
+        final last = hashRt.last;
+        if (last is Map) {
+          final raw = last['token'];
+          final str = raw?.toString().trim();
+          if (str != null && str.isNotEmpty) return str;
+        }
+      }
+    }
+
+    // Beta shape / fallback: top-level sessionToken
+    final raw = data['sessionToken'] ?? data['token'] ?? data['accessToken'];
+    final str = raw?.toString().trim();
+    if (str != null && str.isNotEmpty) return str;
+
+    return null;
   }
 }

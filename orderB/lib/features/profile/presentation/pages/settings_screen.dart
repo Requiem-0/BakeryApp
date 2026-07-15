@@ -13,6 +13,76 @@ import '../widgets/profile_shared_widgets.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _showReactivateDialog(BuildContext context) async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reactivate Account'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Your account was deactivated. Enter your credentials to '
+              'reactivate it.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email or Phone',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+              textInputAction: TextInputAction.done,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Reactivate'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      if (!context.mounted) return;
+      AppToast.error(context, 'Please fill in both fields.');
+      return;
+    }
+    final auth = context.read<AuthProvider>();
+    final success = await auth.reactivate(
+      emailOrPhone: email,
+      password: password,
+    );
+    if (!context.mounted) return;
+    if (success) {
+      AppToast.success(context, 'Account reactivated. Welcome back!');
+    } else {
+      AppToast.error(
+          context, auth.errorMessage ?? 'Reactivation failed. Try again.');
+    }
+  }
+
   Future<void> _confirmDeleteAccount(BuildContext context) async {
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
@@ -91,9 +161,9 @@ class SettingsScreen extends StatelessWidget {
                       showDivider: false,
                     ),
                   ]),
-                  // Account-management actions are only meaningful for a
-                  // signed-in user — guests have nothing to change or
-                  // deactivate.
+                  // Authenticated users see account management (password, delete).
+                  // Guests see "Reactivate Account" to restore a deactivated
+                  // profile.
                   if (auth.isAuthenticated) ...[
                     const SizedBox(height: 16),
                     const SectionLabel('ACCOUNT'),
@@ -115,6 +185,20 @@ class SettingsScreen extends StatelessWidget {
                         destructive: true,
                         showDivider: false,
                         onTap: () => _confirmDeleteAccount(context),
+                      ),
+                    ]),
+                  ] else ...[
+                    const SizedBox(height: 16),
+                    const SectionLabel('ACCOUNT'),
+                    const SizedBox(height: 8),
+                    ToggleCard(children: [
+                      _buildLinkRow(
+                        context,
+                        Icons.replay_rounded,
+                        'Reactivate Account',
+                        null,
+                        showDivider: false,
+                        onTap: () => _showReactivateDialog(context),
                       ),
                     ]),
                   ],
