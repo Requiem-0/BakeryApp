@@ -7,9 +7,6 @@ import '../../data/repositories/product_repository.dart';
 
 enum CatalogueLoadState { idle, loading, ready, error }
 
-/// Single source of truth for catalogue data (categories + products + recent
-/// purchases). UI binds to its public state and calls the public methods.
-///
 /// Three independent state slots — categories, products, recentPurchases —
 /// each with their own load state + error so screens that show all three
 /// concurrently (e.g. home) can render fine-grained skeleton/error UI.
@@ -23,7 +20,7 @@ class CatalogueProvider extends ChangeNotifier {
   CatalogueProvider({required ProductRepository repository})
       : _repo = repository;
 
-  // ── Categories slot ──────────────────────────────────────────────────────
+
   List<ApiCategory> _categories = const [];
   CatalogueLoadState _categoriesState = CatalogueLoadState.idle;
   String? _categoriesError;
@@ -47,7 +44,7 @@ class CatalogueProvider extends ChangeNotifier {
     return _categories.where((c) => activeIds.contains(c.id)).toList();
   }
 
-  // ── Products slot (filtered by selectedCategoryId or searchKeyword) ──────
+
   List<ApiProduct> _products = const [];
   CatalogueLoadState _productsState = CatalogueLoadState.idle;
   String? _productsError;
@@ -72,7 +69,7 @@ class CatalogueProvider extends ChangeNotifier {
   /// trailing spinner without flashing the main `productsState` to loading.
   bool get isLoadingMoreProducts => _isLoadingMore;
 
-  // ── Recent purchases slot ────────────────────────────────────────────────
+
   List<ApiProduct> _recentPurchases = const [];
   CatalogueLoadState _recentPurchasesState = CatalogueLoadState.idle;
   String? _recentPurchasesError;
@@ -81,7 +78,7 @@ class CatalogueProvider extends ChangeNotifier {
   CatalogueLoadState get recentPurchasesState => _recentPurchasesState;
   String? get recentPurchasesError => _recentPurchasesError;
 
-  // ── Lifecycle ────────────────────────────────────────────────────────────
+
   /// Called once on app start. Loads categories so the UI has filters
   /// available immediately. Does not preload products — UI decides which
   /// view to fetch (a category, search results, etc.).
@@ -89,7 +86,7 @@ class CatalogueProvider extends ChangeNotifier {
     await loadCategories();
   }
 
-  // ── Categories ───────────────────────────────────────────────────────────
+
   Future<void> loadCategories() async {
     _categoriesState = CatalogueLoadState.loading;
     _categoriesError = null;
@@ -106,7 +103,7 @@ class CatalogueProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Products ─────────────────────────────────────────────────────────────
+
   /// Loads the first page of /products/. Subsequent pages via [loadMoreProducts].
   Future<void> loadAllProducts() async {
     _searchKeyword = '';
@@ -180,7 +177,7 @@ class CatalogueProvider extends ChangeNotifier {
     return result.data;
   }
 
-  // ── Bid email ────────────────────────────────────────────────────────────
+
   Future<bool> sendBidEmail({
     required String adminId,
     required String description,
@@ -194,7 +191,7 @@ class CatalogueProvider extends ChangeNotifier {
     return result.isSuccess;
   }
 
-  // ── Recent purchases (auth required) ─────────────────────────────────────
+
   Future<void> loadRecentPurchases() async {
     _recentPurchasesState = CatalogueLoadState.loading;
     _recentPurchasesError = null;
@@ -220,7 +217,7 @@ class CatalogueProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+
 
   /// Used by non-paginated product loads (category filter, search, popularity).
   Future<void> _runProductLoad(

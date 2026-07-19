@@ -102,7 +102,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
                   children: [
-                    // ── Summary Header ──────────────────────
+
                     Container(
                       padding: const EdgeInsets.all(24),
                       margin: const EdgeInsets.only(bottom: 24),
@@ -172,7 +172,7 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
                       ),
                     ),
 
-                    // ── Dynamic Order cards with staggered load animations ──
+
                     ...List.generate(orders.length, (i) {
                       final order = orders[i];
                       return TweenAnimationBuilder<double>(

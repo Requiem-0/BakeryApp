@@ -3,7 +3,7 @@ import 'app_colors.dart';
 
 /// Shared decorations, shadows and border-radius constants.
 abstract final class AppDecorations {
-  // ─── Border Radii ───────────────────────────────────────────
+
   static const double radiusXS = 8.0;
   static const double radiusS = 10.0;
   static const double radiusSM = 12.0;
@@ -15,7 +15,7 @@ abstract final class AppDecorations {
   static const double radiusCard = 20.0;
   static const double radiusPill = 50.0;
 
-  // ─── Box Shadows ────────────────────────────────────────────
+
   static const List<BoxShadow> cardShadow = [
     BoxShadow(
       color: AppColors.shadow,
@@ -48,7 +48,7 @@ abstract final class AppDecorations {
     ),
   ];
 
-  // ─── Common Decorations ─────────────────────────────────────
+
   static BoxDecoration get card => BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(radiusCard),

@@ -6,8 +6,8 @@ import '../../data/repositories/business_repository.dart';
 
 enum BusinessLoadState { idle, loading, ready, error }
 
-/// Single source of truth for business data. Three independent state slots
-/// (all/featured/selected) so a screen that shows e.g. a featured carousel
+/// Three independent state slots (all/featured/selected) so a screen that
+/// shows e.g. a featured carousel
 /// AND a full list AND a selected business detail can render fine-grained
 /// loading/error UI per slot without one breaking the others.
 class BusinessProvider extends ChangeNotifier {
@@ -16,7 +16,7 @@ class BusinessProvider extends ChangeNotifier {
   BusinessProvider({required BusinessRepository repository})
       : _repo = repository;
 
-  // ── All businesses slot ──────────────────────────────────────────────────
+
   List<ApiBusiness> _businesses = const [];
   BusinessLoadState _businessesState = BusinessLoadState.idle;
   String? _businessesError;
@@ -25,7 +25,7 @@ class BusinessProvider extends ChangeNotifier {
   BusinessLoadState get businessesState => _businessesState;
   String? get businessesError => _businessesError;
 
-  // ── Featured slot ────────────────────────────────────────────────────────
+
   List<ApiBusiness> _featured = const [];
   BusinessLoadState _featuredState = BusinessLoadState.idle;
   String? _featuredError;
@@ -34,7 +34,7 @@ class BusinessProvider extends ChangeNotifier {
   BusinessLoadState get featuredState => _featuredState;
   String? get featuredError => _featuredError;
 
-  // ── Current business slot (the one this app instance represents) ────────
+
   // Loaded once on bootstrap from [AppConstants.bakeryBusinessId] so UI can
   // read businessName / address / logo / currency etc. from a single source
   // instead of hardcoding them. Distinct from [_selectedBusiness] which is
@@ -47,7 +47,7 @@ class BusinessProvider extends ChangeNotifier {
   BusinessLoadState get currentState => _currentState;
   String? get currentError => _currentError;
 
-  // ── Selected business slot (for detail / "browse this business") ─────────
+
   ApiBusiness? _selectedBusiness;
   List<ApiProduct> _selectedProducts = const [];
   BusinessLoadState _selectedState = BusinessLoadState.idle;
@@ -58,7 +58,7 @@ class BusinessProvider extends ChangeNotifier {
   BusinessLoadState get selectedState => _selectedState;
   String? get selectedError => _selectedError;
 
-  // ── Lifecycle ────────────────────────────────────────────────────────────
+
   /// Loads the business this app represents. Pass null to skip (used in
   /// tests or multi-business builds). Other slots (all/featured) stay
   /// idle — the screens that surface them trigger their own loads to
@@ -69,7 +69,7 @@ class BusinessProvider extends ChangeNotifier {
     }
   }
 
-  // ── Current business ─────────────────────────────────────────────────────
+
   /// Fetches the business identified by [id] and stores it in [current].
   /// UI reads `businessName`, `address`, `logo`, etc. from there instead of
   /// hardcoding. Safe to re-call (e.g. after a config change that swaps
@@ -89,7 +89,7 @@ class BusinessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── All businesses ───────────────────────────────────────────────────────
+
   /// Pass [latitude]/[longitude]/[distance] together to filter by radius.
   /// Omit them for the full list.
   Future<void> loadAll({
@@ -116,7 +116,7 @@ class BusinessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Featured ─────────────────────────────────────────────────────────────
+
   Future<void> loadFeatured() async {
     _featuredState = BusinessLoadState.loading;
     _featuredError = null;
@@ -133,7 +133,7 @@ class BusinessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Location filter ──────────────────────────────────────────────────────
+
   /// Replaces the all-businesses slot with location-filtered results.
   Future<void> loadByLocation(String location) async {
     final trimmed = location.trim();
@@ -159,7 +159,7 @@ class BusinessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Single business lookups (do not mutate list slot) ────────────────────
+
   /// One-shot lookup by id. Returns null on failure or when the server
   /// says not-found.
   Future<ApiBusiness?> getBusiness(String id) async {
@@ -176,7 +176,7 @@ class BusinessProvider extends ChangeNotifier {
     return result.data;
   }
 
-  // ── Selected business + its products ─────────────────────────────────────
+
   /// Fetches /businesses/{id}/products and stores both the business and
   /// its products in the "selected" slot. Used when the user taps into a
   /// business to browse its catalog.

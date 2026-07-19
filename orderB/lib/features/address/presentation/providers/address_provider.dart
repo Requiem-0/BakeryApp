@@ -25,7 +25,7 @@ class AddressProvider extends ChangeNotifier {
     LocationRepository? locationRepository,
   }) : _repo = locationRepository ?? LocationRepository(apiClient: apiClient);
 
-  // ── Public getters ────────────────────────────────────────────
+
 
   List<Address> get addresses => _addresses;
   bool get loading => _loading;
@@ -55,7 +55,7 @@ class AddressProvider extends ChangeNotifier {
     );
   }
 
-  // ── Lifecycle ─────────────────────────────────────────────────
+
 
   /// Fetches addresses from the server. Call after login or on
   /// pull-to-refresh. Safe to call when unauthenticated — the 401 just
@@ -84,7 +84,7 @@ class AddressProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Selection ─────────────────────────────────────────────────
+
 
   /// Marks the given address active server-side. Other addresses are
   /// auto-deactivated by the backend. Returns true on success.
@@ -105,7 +105,7 @@ class AddressProvider extends ChangeNotifier {
     return false;
   }
 
-  // ── CRUD ──────────────────────────────────────────────────────
+
 
   /// Creates a new address. Newly-added entries default to `isActive: true`
   /// (becoming the new default), matching what the UI expects after the

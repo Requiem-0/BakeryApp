@@ -96,7 +96,7 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // ── Animated price (left) ─────────────────────────
+
                     // Strikethrough sticker total sits above the
                     // discounted total when a deal is active; otherwise
                     // only the live price renders.
@@ -157,7 +157,7 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
 
                     const SizedBox(width: 12),
 
-                    // ── Stepper pill (center-right) ───────────────────
+
                     Container(
                       height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -204,7 +204,7 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
 
                     const SizedBox(width: 12),
 
-                    // ── Pulsing basket button ─────────────────────────
+
                     GestureDetector(
                       onTap: widget.onCheckout,
                       child: AnimatedBuilder(
@@ -247,7 +247,7 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
   }
 }
 
-// ── Stepper button ────────────────────────────────────────────────────────────
+
 
 class _StepperButton extends StatelessWidget {
   final IconData icon;

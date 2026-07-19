@@ -151,7 +151,7 @@ class BusinessRepository {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+
 
   ApiResult<List<ApiBusiness>> _parseBusinessList(dynamic data) {
     if (data is! Map<String, dynamic>) {

@@ -200,7 +200,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ─── Receipt Card ─────────────────────────
+
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(
@@ -412,7 +412,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         const SizedBox(height: 28),
 
-                        // ─── Deliver To ───────────────────────────
+
                         Text('Pickup From',
                             style: theme.textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w600)),
@@ -432,7 +432,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         const SizedBox(height: 28),
 
-                        // ─── Payment Method ───────────────────────
+
                         Text('Payment Method',
                             style: theme.textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w600)),

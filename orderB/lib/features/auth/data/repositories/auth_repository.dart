@@ -10,7 +10,7 @@ class AuthRepository {
 
   AuthRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
-  // ── Public (no token) ─────────────────────────────────────────────────────
+
 
   Future<ApiResult<void>> register({
     required String name,
@@ -122,7 +122,7 @@ class AuthRepository {
     }
   }
 
-  // ── Authenticated (Bearer attached by ApiClient interceptor) ──────────────
+
 
   Future<ApiResult<Customer>> getMe() async {
     try {

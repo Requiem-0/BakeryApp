@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen>
       opacity: _fadeAnim,
       child: Column(
         children: [
-          // ── Header ──────────────────────────────────────────────
+
           Padding(
             padding: EdgeInsets.fromLTRB(
                 Responsive.horizontalPadding(context), 8,
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const SizedBox(height: 14),
 
-          // ── Search ───────────────────────────────────────────────
+
           Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: Responsive.horizontalPadding(context)),
@@ -178,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const SizedBox(height: 8),
 
-          // ── Category Pills ───────────────────────────────────────
+
           SizedBox(
             height: 60,
             child: ListView(
@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          // ── Scrollable content ───────────────────────────────────
+
           Expanded(
             child: RefreshIndicator(
               // Pull-to-refresh hits three things customers care about:
@@ -246,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Responsive.horizontalPadding(context), 0,
                   Responsive.horizontalPadding(context), 100),
               children: [
-                // ── AI Tip ───────────────────────────────────────────────
+
                 const AiTip(),
                 const SizedBox(height: 16),
 
@@ -409,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-// ── Private helper widgets ────────────────────────────────────────────────────
+
 
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;

@@ -188,7 +188,7 @@ final class AppTheme {
         ],
       );
 
-  // ─── Dark Theme ─────────────────────────────────────────────
+
   static const _darkSurface = Color(0xFF1A1412);
   static const _darkCard = Color(0xFF251E1A);
   static const _darkDivider = Color(0xFF3A302A);

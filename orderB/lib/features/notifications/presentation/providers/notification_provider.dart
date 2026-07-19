@@ -21,7 +21,7 @@ class NotificationProvider extends ChangeNotifier {
     NotificationRepository? repository,
   }) : _repo = repository ?? NotificationRepository(apiClient: apiClient);
 
-  // ── Getters ───────────────────────────────────────────────────
+
 
   List<ApiNotification> get items => _items;
   bool get loading => _loading;
@@ -32,7 +32,7 @@ class NotificationProvider extends ChangeNotifier {
   int get unreadCount => _items.where((n) => !n.isRead).length;
   bool get hasUnread => unreadCount > 0;
 
-  // ── Lifecycle ─────────────────────────────────────────────────
+
 
   /// Pulls the full notification list. Call after login or on
   /// pull-to-refresh. Safe to call unauthenticated — a 401 just surfaces
@@ -61,7 +61,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Mutations ────────────────────────────────────────────────
+
 
   /// Flips `isRead: true` on every notification server-side. UI updates
   /// optimistically; on failure the list is re-fetched to recover.

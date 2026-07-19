@@ -57,7 +57,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
             children: [
               const Spacer(flex: 2),
 
-              // ─── Animated checkmark ─────────────────────────
+
               ScaleTransition(
                 scale: _scaleAnim,
                 child: Container(
@@ -85,7 +85,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
               ),
               const SizedBox(height: 28),
 
-              // ─── Title & subtitle ───────────────────────────
+
               FadeTransition(
                 opacity: _fadeAnim,
                 child: Column(
@@ -103,7 +103,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
               ),
               const SizedBox(height: 32),
 
-              // ─── Order details card ────────────────────────
+
               FadeTransition(
                 opacity: _fadeAnim,
                 child: Card(
@@ -224,7 +224,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
 
               const Spacer(flex: 3),
 
-              // ─── CTAs ───────────────────────────────────────
+
               PrimaryButton(
                 label: 'View My Orders',
                 onTap: () => context.go('/home/recent_orders'),

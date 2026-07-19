@@ -261,7 +261,7 @@ GoRouter createRouter(AuthProvider authProvider) {
 ///
 /// Only used on prod builds — the bundled JPG is the Breaking Bread
 /// logo and would look wrong on dev/QA builds pointed at a different
-/// business. Dev builds skip straight to the 🥐 emoji until the
+/// business. Dev builds skip straight to the emoji until the
 /// LogoCacheService lands the dev business's actual logo.
 class _SplashAssetLogo extends StatelessWidget {
   const _SplashAssetLogo();
@@ -408,7 +408,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final business = context.watch<BusinessProvider>().current;
-    // Logo fallback chain: on-disk cache → bundled asset → 🥐.
+    // Logo fallback chain: on-disk cache → bundled asset.
     // The emoji is a safety net you'll only see if the asset
     // bundling itself broke, in which case you have bigger
     // problems.

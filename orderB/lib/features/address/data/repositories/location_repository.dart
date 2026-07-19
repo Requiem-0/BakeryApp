@@ -131,7 +131,7 @@ class LocationRepository {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+
 
   /// Unwraps the wrapper shape down to the nested `locations` array.
   /// Returns success(empty list) when the customer has no locations yet

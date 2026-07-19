@@ -14,7 +14,7 @@ abstract final class Responsive {
   static const double _phone = 600;
   static const double _tablet = 900;
 
-  // ── Scale ──────────────────────────────────────────────────────────
+
 
   /// Multiplier for font sizes, image sizes, button heights, etc.
   static double scale(BuildContext context) {
@@ -24,7 +24,7 @@ abstract final class Responsive {
     return 1.0;
   }
 
-  // ── Grid ───────────────────────────────────────────────────────────
+
 
   /// Number of columns for product grids.
   static int gridColumns(BuildContext context) {
@@ -34,7 +34,7 @@ abstract final class Responsive {
     return 2;
   }
 
-  // ── Spacing (increases on big screens to prevent stretch) ──────────
+
 
   /// Horizontal padding for screen edges. Doubles on tablets, quadruples
   /// on desktop so the content area stays readable.

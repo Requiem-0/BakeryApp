@@ -14,7 +14,7 @@ class CartRepository {
 
   CartRepository({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
-  // ── Reads ─────────────────────────────────────────────────────────────────
+
 
   /// `GET /api/cart/my-cart` — server-side cart for the current user.
   /// Returns [ApiCart.empty] when the server has no cart yet for the
@@ -29,7 +29,7 @@ class CartRepository {
     }
   }
 
-  // ── Writes ────────────────────────────────────────────────────────────────
+
 
   /// `POST /api/cart/` — add (or increment) a single item. Server
   /// resolves prices itself, so we don't send `unitPrice`. [addons]

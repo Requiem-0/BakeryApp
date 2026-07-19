@@ -164,7 +164,7 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
-            // ── Counter pinned to the bottom-right corner ─────────────────
+
             // Defaults to AddCounter (product-id aware, fine for browse).
             // Cart-line widgets pass their own via [trailingCounter] so
             // +/− operate on the specific cart line.
@@ -185,7 +185,7 @@ class ProductCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 /// Compact "+" that expands to "−  N  +" once qty > 0.
 class AddCounter extends StatelessWidget {
   final int qty;

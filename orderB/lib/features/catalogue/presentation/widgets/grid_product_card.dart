@@ -150,7 +150,7 @@ class GridProductCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 /// Compact "+" that expands to "−  N  +" once qty > 0 (grid variant).
 class _GridAddCounter extends StatelessWidget {
   final int qty;

@@ -68,7 +68,7 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Public state ──────────────────────────────────────────────────────────
+
 
   List<CartItem> get items => List.unmodifiable(_items);
   bool get isLoading => _isLoading;
@@ -248,7 +248,7 @@ class CartProvider extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  // ── Hydration ─────────────────────────────────────────────────────────────
+
 
   /// Pulls the server-side cart and replaces the local list.
   ///
@@ -338,7 +338,7 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+
 
   /// Adds [product] to the cart. Auto-picks the first variant when
   /// [variant] is null but the product has variants (home-grid "+"
@@ -354,7 +354,7 @@ class CartProvider extends ChangeNotifier {
     final effectiveVariant = variant ?? _defaultVariantFor(product);
     final effectiveAddons = _buildLocalAddons(product, addons);
 
-    // ── Optimistic local update ──────────────────────────────────
+
     // Dedupe key is (productId, variantItemId, addons). Two lines
     // with the same product+variant but different addons stay
     // separate so "Egg + Mayo" and "Egg + Cheese" don't silently
@@ -406,10 +406,10 @@ class CartProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    // ── Guest mode: stop here (in-memory only) ───────────────────
+
     if (!_isAuthenticated()) return true;
 
-    // ── Server sync ──────────────────────────────────────────────
+
     final adminId = product.adminId;
     if (adminId == null || adminId.isEmpty) {
       // Synthetic product (reorder fallback) — server doesn't know
@@ -632,7 +632,7 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  // ── Internals ─────────────────────────────────────────────────────────────
+
 
   /// Rebuilds [_items] from the server's authoritative cart.
   ///
@@ -696,7 +696,7 @@ class CartProvider extends ChangeNotifier {
       ..addAll(next);
   }
 
-  // ── Local persistence ─────────────────────────────────────────────────────
+
 
   /// Restore the cart from a SharedPreferences-backed JSON snapshot.
   /// Wired from main.dart at app startup so a hot-restart / cold-start

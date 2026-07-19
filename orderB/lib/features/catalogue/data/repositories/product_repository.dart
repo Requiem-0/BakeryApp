@@ -173,7 +173,7 @@ class ProductRepository {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+
 
   ApiResult<List<ApiProduct>> _parseProductList(dynamic data) {
     if (data is! Map<String, dynamic>) {

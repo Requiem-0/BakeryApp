@@ -11,7 +11,7 @@ abstract final class AppConstants {
   static String appName = 'Breaking Bread';
   static String currency = 'Rs';
 
-  // ── Environment switch ────────────────────────────────────────────────────
+
   // One bool, three things switch: API host, image host, business id.
   // Easier than playing whack-a-mole with three separate constants every
   // time we move between dev and prod.

@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// Colors are intentionally omitted — they come from the theme's textTheme.
 /// Only use these directly for font/size/weight; let the theme handle color.
 abstract final class AppTextStyles {
-  // ─── Heading / Serif ────────────────────────────────────────
+
   static TextStyle get displayLarge => GoogleFonts.dmSerifDisplay(
         fontSize: 32,
         fontWeight: FontWeight.w400,
@@ -39,7 +39,7 @@ abstract final class AppTextStyles {
         letterSpacing: 0.5,
       );
 
-  // ─── Body / Sans ────────────────────────────────────────────
+
   static TextStyle get bodyLarge => GoogleFonts.dmSans(
         fontSize: 15,
         fontWeight: FontWeight.w400,
@@ -95,7 +95,7 @@ abstract final class AppTextStyles {
         fontWeight: FontWeight.w400,
       );
 
-  // ─── Mono / Receipt ──────────────────────────────────────────
+
   static TextStyle get receipt => GoogleFonts.jetBrainsMono(
         fontSize: 12,
         fontWeight: FontWeight.w400,

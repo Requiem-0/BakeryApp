@@ -133,7 +133,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           CustomScrollView(
             slivers: [
-              // ── Hero Image ──────────────────────────────────────
+
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
@@ -165,7 +165,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
 
-              // ── Content ─────────────────────────────────────────
+
               SliverToBoxAdapter(
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 140),
@@ -404,7 +404,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
 
-          // ── Bottom CTA ───────────────────────────────────────────
+
           // Stepper +/- target the line matching the CURRENT variant
           // selection, so picking Medium and tapping + creates a
           // separate Medium line even when Small is already in cart.
@@ -456,7 +456,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 }
 
-// ── Private Helper Widgets ───────────────────────────────────────
+
 
 /// Full-bleed hero. Image stretches edge-to-edge with `BoxFit.cover`,
 /// emoji renders large + centered on a neutral surface when no URL is

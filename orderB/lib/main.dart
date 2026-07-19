@@ -41,7 +41,7 @@ Future<void> main() async {
     );
   }
 
-  // ── Firebase + Crashlytics ──────────────────────────────────────
+
   // Wrapped in try/catch so dev machines that don't have a
   // google-services.json yet (the file is gitignored and lives only
   // on the build machine + CI secret store) can still run the app.

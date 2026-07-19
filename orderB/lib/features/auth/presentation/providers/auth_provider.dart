@@ -8,11 +8,8 @@ import '../../data/repositories/auth_repository.dart';
 
 enum AuthStatus { initial, authenticated, unauthenticated }
 
-/// Single source of truth for authentication state.
-///
-/// UI consumes [status] / [user] / [isBusy] / [errorMessage] and calls the
-/// public methods. All methods (except [logout] and [bootstrap]) return
-/// `Future<bool>` so callers can navigate or surface errors directly:
+/// All methods (except [logout] and [bootstrap]) return `Future<bool>` so
+/// callers can navigate or surface errors directly:
 ///
 ///     final ok = await context.read<AuthProvider>().login(...);
 ///     if (!ok) showSnackBar(authProvider.errorMessage ?? 'Login failed');
@@ -31,14 +28,14 @@ class AuthProvider extends ChangeNotifier {
   })  : _repo = repository,
         _tokenStorage = tokenStorage;
 
-  // ── Public state ──────────────────────────────────────────────────────────
+
   AuthStatus get status => _status;
   Customer? get user => _user;
   bool get isBusy => _isBusy;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
 
   /// Called on app start. Reads stored token; if present, validates by
   /// fetching /me. On any failure, ends in [AuthStatus.unauthenticated].
@@ -78,7 +75,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ── Auth flows ────────────────────────────────────────────────────────────
+
 
   Future<bool> login({
     required String emailOrPhone,
@@ -203,19 +200,7 @@ class AuthProvider extends ChangeNotifier {
     _setStatus(AuthStatus.unauthenticated);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  //
-  // Every public method in this class needs the same boilerplate:
-  //   1. set isBusy = true, clear errorMessage, notify
-  //   2. run the actual logic, catching errors
-  //   3. set isBusy = false, notify
-  //
-  // [_run] does that wrapping for any method whose body decides true/false.
-  // [_runSimple] is a thin convenience for methods that just want
-  // "ApiResult.isSuccess → true, otherwise false + capture the message".
 
-  /// Use for methods that just call a repository method and return its
-  /// success/failure as a bool.
   Future<bool> _runSimple(Future<dynamic> Function() call) => _run(() async {
         final result = await call();
         if (result.isSuccess) return true;
@@ -223,8 +208,6 @@ class AuthProvider extends ChangeNotifier {
         return false;
       });
 
-  /// Use for methods that need custom logic between the busy-state flips
-  /// (e.g. login, which saves a token AND fetches /me on success).
   Future<bool> _run(Future<bool> Function() body) async {
     _isBusy = true;
     _errorMessage = null;
