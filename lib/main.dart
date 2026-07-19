@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/logo_cache.dart';
 import 'core/storage/token_storage.dart';
@@ -109,6 +110,14 @@ Future<void> main() async {
   final logoCache = LogoCacheService();
   await logoCache.loadCached();
 
+  // Also load the cached business name so the splash doesn't flash a
+  // hardcoded fallback before the API responds.
+  final prefs = await SharedPreferences.getInstance();
+  final cachedName = prefs.getString('businessName');
+  if (cachedName != null && cachedName.isNotEmpty) {
+    AppConstants.appName = cachedName;
+  }
+
   businessProvider.addListener(() {
     final b = businessProvider.current;
     if (b != null) {
@@ -116,6 +125,12 @@ Future<void> main() async {
         appName: b.businessName,
         currency: b.admin.currency,
       );
+      // Persist so the splash shows the real name on next cold start.
+      if (b.businessName.isNotEmpty) {
+        SharedPreferences.getInstance().then((p) {
+          p.setString('businessName', b.businessName);
+        });
+      }
       // Re-download the logo whenever the business resolves with a new
       // URL. ensureCached is a no-op when the on-disk cache already
       // matches, so this is cheap on hot launches.

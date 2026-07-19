@@ -184,7 +184,8 @@ class _HomeScreenState extends State<HomeScreen>
             child: ListView(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
+              padding: EdgeInsets.symmetric(
+                  horizontal: Responsive.horizontalPadding(context)),
               children: [
                 CategoryPill(
                   label: 'All',

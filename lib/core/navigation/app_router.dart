@@ -407,14 +407,12 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final business = context.watch<BusinessProvider>().current;
-    // Logo fallback chain: on-disk cache → bundled asset.
-    // The emoji is a safety net you'll only see if the asset
-    // bundling itself broke, in which case you have bigger
-    // problems.
+    // Read name once — no watch, no flicker. If the business API hasn't
+    // resolved yet the fallback shows; if it has, the real name sticks.
     final cachedLogoFile = context.watch<LogoCacheService>().file;
-    final name = (business?.businessName.isNotEmpty == true)
-        ? business!.businessName
+    final biz = context.read<BusinessProvider>().current;
+    final name = (biz != null && biz.businessName.isNotEmpty)
+        ? biz.businessName
         : AppConstants.appName;
 
     return Scaffold(
