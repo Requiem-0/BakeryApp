@@ -43,7 +43,9 @@ android {
     // shared_preferences, sqflite) compile against 36, so we match.
     // Backward compatible — doesn't affect minSdk / targetSdk / what
     // devices can install. [targetSdk] below is what Play Store cares
-    // about; that stays at 35 to match the current Play floor.
+    // about; bumped to 36 to meet Google Play's Aug 31 2026 target
+    // API requirement (apps must target within one year of the
+    // latest Android release).
     compileSdk = 36
     // Pinned to a locally-installed NDK so Gradle doesn't try to fetch
     // `flutter.ndkVersion` (28.2.13676358) every cold build. orderB is
@@ -64,7 +66,13 @@ android {
         // Android 6 (Marshmallow). Covers ~99% of active devices in
         // Nepal and gives us runtime permission APIs by default.
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        // Android 16 (API 36). Meets Google Play's target-API floor
+        // that kicks in on 2026-08-31. Bumped from 35 to 36 here;
+        // behavioural changes to watch for on this app: (a) mandatory
+        // edge-to-edge rendering — already handled since the status
+        // bar is hidden globally and SafeArea wraps the bottom nav,
+        // (b) predictive-back gesture — opt-in below in the manifest.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

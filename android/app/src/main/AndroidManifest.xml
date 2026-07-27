@@ -29,9 +29,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="Pokhara Bakery"
+        android:label="Breaking Bread"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".MainActivity"
