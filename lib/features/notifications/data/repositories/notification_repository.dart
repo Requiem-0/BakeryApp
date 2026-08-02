@@ -23,7 +23,7 @@ class NotificationRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected response shape from /notification/.',
+          message: 'We couldn\'t load notifications. Please try again.',
         ));
       }
       final inner = data['data'];

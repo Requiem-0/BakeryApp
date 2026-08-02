@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../constants.dart';
 import '../errors/api_failure.dart';
@@ -109,6 +110,10 @@ class ApiClient {
       }
       return ApiFailure(message: fallback, statusCode: status);
     }
-    return ApiFailure(message: error.toString());
+    // Last-resort catch-all — surface the raw error to the debug log but
+    // show a generic message to the user (error.toString() can leak
+    // stack frames, JSON snippets, etc.).
+    debugPrint('ApiClient.parseError unexpected error: $error');
+    return const ApiFailure(message: 'Something went wrong. Please try again.');
   }
 }

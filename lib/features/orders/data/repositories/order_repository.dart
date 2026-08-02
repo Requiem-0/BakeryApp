@@ -18,7 +18,7 @@ class OrderRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected response format from /ticket/.',
+          message: 'We couldn\'t load your orders. Please try again.',
         ));
       }
       return ApiResult.success(
@@ -37,7 +37,7 @@ class OrderRepository {
       final data = res.data;
       if (data is! List) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected list response format from /ticket/my-orders.',
+          message: 'We couldn\'t load your orders. Please try again.',
         ));
       }
       return ApiResult.success(
@@ -56,7 +56,7 @@ class OrderRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected ticket details response shape.',
+          message: 'We couldn\'t load this order. Please try again.',
         ));
       }
       return ApiResult.success(Order.fromJson(data));
@@ -93,7 +93,7 @@ class OrderRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected ticket response from backend.',
+          message: 'We couldn\'t place your order. Please try again.',
         ));
       }
       return ApiResult.success(data);
@@ -140,7 +140,7 @@ class OrderRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected table request response.',
+          message: 'We couldn\'t send your request. Please try again.',
         ));
       }
       return ApiResult.success(data);

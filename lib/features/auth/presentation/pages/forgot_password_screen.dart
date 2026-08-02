@@ -40,12 +40,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (mounted) {
       if (ok) {
         AppToast.success(
-            context, 'Reset token sent successfully! Check your inbox.');
+            context, 'Verification code sent. Check your inbox.');
         // Navigate to the reset screen
         context.push('/reset-password');
       } else {
         AppToast.error(context,
-            authProvider.errorMessage ?? 'Failed to send reset token');
+            authProvider.errorMessage ?? 'Couldn\'t send verification code.');
       }
     }
   }
@@ -88,7 +88,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Enter your email address or phone number to receive a verification token to reset your password.',
+                        'Enter your email address or phone number to receive a verification code to reset your password.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark ? Colors.grey[400] : AppColors.textLight,
                           height: 1.4,
@@ -124,7 +124,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       
                       const SizedBox(height: 32),
                       PrimaryButton(
-                        label: 'Send Reset Token',
+                        label: 'Send Verification Code',
                         onTap: _handleSendResetToken,
                         isLoading: authProvider.isBusy,
                       ),

@@ -93,16 +93,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter the reset token sent to your email or phone, along with your new password.',
+                        'Enter the verification code sent to your email or phone, along with your new password.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark ? Colors.grey[400] : AppColors.textLight,
                         ),
                       ),
                       const SizedBox(height: 32),
                       
-                      // Token
+                      // Verification code
                       Text(
-                        'RESET TOKEN',
+                        'VERIFICATION CODE',
                         style: theme.textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.8,
@@ -113,7 +113,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         controller: _tokenController,
                         style: theme.textTheme.bodyMedium,
                         decoration: InputDecoration(
-                          hintText: 'Enter your reset token',
+                          hintText: 'Enter the verification code',
                           prefixIcon: Icon(
                             Icons.key_outlined,
                             color: iconColor,
@@ -121,7 +121,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Please enter the reset token';
+                            return 'Please enter the verification code';
                           }
                           return null;
                         },

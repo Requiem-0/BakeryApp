@@ -54,7 +54,7 @@ class ProductRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected response shape from /products/categories.',
+          message: 'We couldn\'t load categories. Please try again.',
         ));
       }
       return ApiResult.success(
@@ -108,7 +108,7 @@ class ProductRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Unexpected response shape from /products/{id}.',
+          message: 'We couldn\'t load this product. Please try again.',
         ));
       }
       final product = data['product'];
@@ -178,8 +178,7 @@ class ProductRepository {
   ApiResult<List<ApiProduct>> _parseProductList(dynamic data) {
     if (data is! Map<String, dynamic>) {
       return ApiResult.failure(const ApiFailure(
-        message:
-            'Unexpected response shape — expected an object with "products" key.',
+        message: 'We couldn\'t load products. Please try again.',
       ));
     }
     return ApiResult.success(
@@ -190,8 +189,7 @@ class ProductRepository {
   ApiResult<ApiProductPage> _parsePagedProducts(dynamic data) {
     if (data is! Map<String, dynamic>) {
       return ApiResult.failure(const ApiFailure(
-        message:
-            'Unexpected response shape — expected an object with "products" key.',
+        message: 'We couldn\'t load products. Please try again.',
       ));
     }
     return ApiResult.success(ApiProductPage(

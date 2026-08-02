@@ -101,7 +101,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter your email address and the verification token sent to you to activate your account.',
+                        'Enter your email address and the verification code sent to you to activate your account.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark ? Colors.grey[400] : AppColors.textLight,
                         ),
@@ -142,9 +142,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       
                       const SizedBox(height: 20),
                       
-                      // Token
+                      // Verification code
                       Text(
-                        'VERIFICATION TOKEN',
+                        'VERIFICATION CODE',
                         style: theme.textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.8,
@@ -155,7 +155,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         controller: _tokenController,
                         style: theme.textTheme.bodyMedium,
                         decoration: InputDecoration(
-                          hintText: 'Enter verification token',
+                          hintText: 'Enter the verification code',
                           prefixIcon: Icon(
                             Icons.key_outlined,
                             color: iconColor,
@@ -163,7 +163,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Please enter the verification token';
+                            return 'Please enter the verification code';
                           }
                           return null;
                         },

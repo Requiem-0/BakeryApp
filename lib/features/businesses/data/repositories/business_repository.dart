@@ -141,8 +141,7 @@ class BusinessRepository {
       final data = res.data;
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
-          message:
-              'Unexpected response shape from /businesses/{id}/products.',
+          message: 'We couldn\'t load products. Please try again.',
         ));
       }
       return ApiResult.success(ApiBusinessProducts.fromJson(data));
@@ -156,8 +155,7 @@ class BusinessRepository {
   ApiResult<List<ApiBusiness>> _parseBusinessList(dynamic data) {
     if (data is! Map<String, dynamic>) {
       return ApiResult.failure(const ApiFailure(
-        message:
-            'Unexpected response shape — expected an object with "businesses" key.',
+        message: 'We couldn\'t load businesses. Please try again.',
       ));
     }
     return ApiResult.success(
@@ -166,7 +164,6 @@ class BusinessRepository {
   }
 
   ApiResult<ApiBusiness?> _shapeError() => ApiResult.failure(const ApiFailure(
-        message:
-            'Unexpected response shape — expected an object with "business" key.',
+        message: 'We couldn\'t load this business. Please try again.',
       ));
 }

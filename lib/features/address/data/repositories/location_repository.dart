@@ -139,7 +139,7 @@ class LocationRepository {
   ApiResult<List<ApiLocation>> _parse(dynamic data) {
     if (data is! Map<String, dynamic>) {
       return ApiResult.failure(const ApiFailure(
-        message: 'Unexpected response shape from /location/*.',
+        message: 'We couldn\'t load delivery zones. Please try again.',
       ));
     }
     final raw = data['locations'];

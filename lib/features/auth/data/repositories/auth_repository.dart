@@ -45,8 +45,12 @@ class AuthRepository {
       });
       final token = _extractToken(res.data);
       if (token == null) {
+        // Backend returns 200 with no token when the account is
+        // deactivated (rather than a proper error). Signal that via
+        // the message wording — the login screen's heuristic keys off
+        // the word "deactivat" and rewrites this to a nicer toast.
         return ApiResult.failure(const ApiFailure(
-          message: 'Login response did not contain a session token.',
+          message: 'This account has been deactivated.',
         ));
       }
       return ApiResult.success(token);
@@ -113,7 +117,7 @@ class AuthRepository {
       final token = _extractReactivateToken(res.data);
       if (token == null) {
         return ApiResult.failure(const ApiFailure(
-          message: 'Reactivation response did not contain a session token.',
+          message: 'We couldn\'t reactivate your account. Please try again.',
         ));
       }
       return ApiResult.success(token);
