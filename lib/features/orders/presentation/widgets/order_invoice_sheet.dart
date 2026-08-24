@@ -9,12 +9,10 @@ import '../providers/order_provider.dart';
 
 /// Bottom sheet showing a receipt-style invoice for a past order.
 ///
-/// [order] is the snapshot passed in at open time. If [OrderProvider]
-/// still has an entry with the same id when we rebuild, we prefer that
-/// live copy — so an open sheet reflects status changes (e.g. POS marks
-/// the order paid) as soon as `fetchOrders` returns. Falls back to the
-/// snapshot when the order has been evicted (rare — happens only if
-/// history is cleared while the sheet is open).
+/// [order] is a snapshot from open time, but we re-look up by id from
+/// OrderProvider on each build so the sheet reflects live status
+/// changes (POS marking it paid, etc). Falls back to the snapshot if
+/// the order got evicted from history while we're open.
 class OrderInvoiceSheet extends StatelessWidget {
   final Order order;
 
@@ -39,11 +37,10 @@ class OrderInvoiceSheet extends StatelessWidget {
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
 
-    // Live-lookup: if OrderProvider has a fresher copy of this id, use
-    // it so the sheet doesn't get stuck on a stale snapshot when the
-    // POS updates status while the sheet is open. The `context.select`
-    // scopes the rebuild to just this order's identity, so unrelated
-    // provider notifications don't cause the whole sheet to redraw.
+    // Live lookup — grab the freshest copy from the provider so
+    // status/tax/total updates land here without a re-open. Falls
+    // back to the constructor snapshot if the order isn't in the
+    // list anymore.
     final order = context.select<OrderProvider, Order>((prov) {
       for (final o in prov.orders) {
         if (o.id == this.order.id) return o;
@@ -191,10 +188,9 @@ class OrderInvoiceSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 Divider(height: 1, color: theme.dividerColor),
                 const SizedBox(height: 12),
-                // Total — lineTotals above already render post-discount
-                // (item.unitTotal × qty), so they sum to order.total.
-                // Tax row only when the ticket actually carried tax so
-                // pre-VAT bakeries keep the clean single-line format.
+                // Total — lineTotals above are post-discount, so they
+                // sum to order.total. Tax row only when there's tax
+                // so pre-VAT bakeries keep the single-line look.
                 if (order.tax > 0) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

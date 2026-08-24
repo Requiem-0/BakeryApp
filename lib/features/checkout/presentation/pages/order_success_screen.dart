@@ -179,11 +179,9 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                             )),
                         Divider(height: 20, color: theme.dividerColor),
                         // Total — line items above are already
-                        // post-discount (item.price = unitPrice +
-                        // addonPerUnit), so they sum to (subtotal −
-                        // discount). Show the Tax line only when the
-                        // order actually had tax so bakeries running
-                        // tax-free don't get an empty row.
+                        // post-discount, so they sum to (subtotal −
+                        // discount). Tax row only when there's tax
+                        // so tax-free bakeries stay clean.
                         if (o.tax > 0) ...[
                           Row(
                             mainAxisAlignment:

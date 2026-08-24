@@ -263,6 +263,16 @@ class OrderProvider extends ChangeNotifier {
     return null;
   }
 
+  /// One-shot fetch of a single ticket by id. Checkout calls this
+  /// right after placing so the success screen shows the server's
+  /// tax/discount/total instead of the client preview. Returns null
+  /// on failure — caller falls back to its own numbers.
+  Future<Order?> fetchTicketDetails(String orderId) async {
+    final result = await _repo.fetchTicketDetails(orderId);
+    if (result.isFailure || result.data == null) return null;
+    return _enrichOrder(result.data!);
+  }
+
   /// Sends a dine-in table request
   Future<bool> requestTableService({
     required String businessId,

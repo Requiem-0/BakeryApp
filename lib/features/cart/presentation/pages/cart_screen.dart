@@ -298,14 +298,10 @@ class CartScreen extends StatelessWidget {
                                     label: 'Service charge',
                                     value: cart.serviceCharge),
                               ],
-                              // Tax row — surfaces only when the
-                              // business has an active VAT rule. For
-                              // inclusive-mode the label carries "incl."
-                              // so the Total below reads consistently
-                              // with what the customer will actually pay.
-                              // The ⓘ opens the TaxPolicySheet so the
-                              // customer can see the rate + mode
-                              // without having to trust the number.
+                              // Tax row — only when there's an active
+                              // rule. "(incl.)" label in inclusive
+                              // mode so the total below reads right.
+                              // Tap ⓘ for the policy sheet.
                               if (cart.taxTotal > 0) ...[
                                 const SizedBox(height: 10),
                                 _PriceSummaryRow(

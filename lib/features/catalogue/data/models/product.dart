@@ -152,28 +152,14 @@ class Product {
     );
   }
 
-  /// Returns the first discount rule attached to this product that the
-  /// backend will auto-apply, or null.
+  /// First auto-applied discount for this product, or null.
   ///
-  /// The backend's semantics — matched by the POS-side ordering app
-  /// that already ships — is that **presence in the `discounts` array
-  /// means the rule applies**. The `isEnabled` field on the rule
-  /// object is a separate global-rule flag the POS toggle doesn't
-  /// touch when attaching/detaching a rule from a product, so we
-  /// intentionally do NOT gate on it here. The POS's "Enabled"
-  /// toggle actually adds/removes the rule from the product's
-  /// `discounts` array — so an empty array = no discount, a populated
-  /// array = apply.
-  ///
-  /// Requirements to apply:
-  ///   • `discountType == "applyEverytime"` — selective (coupon-code)
-  ///     rules need customer input we don't surface
-  ///   • at least one rule with a positive `rate`
-  ///
-  /// Bare-string rule entries (some endpoints return just IDs — see
-  /// [ApiProduct._parseDiscounts]) get skipped here because `rate`
-  /// is null; the caller should have hydrated from a list endpoint
-  /// that returns full metadata.
+  /// Presence in `api.discounts` = the rule applies (that's what the
+  /// POS toggle actually controls — see `ApiProductDiscount.isEnabled`
+  /// for why we don't gate on that flag). Requires `discountType ==
+  /// "applyEverytime"` and a positive rate; bare-string entries with
+  /// no rate get skipped, so callers should be reading from a list
+  /// endpoint that returns full metadata.
   static ProductDiscount? _resolveAutoDiscount(ApiProduct api) {
     if (api.discountType != 'applyEverytime') return null;
     for (final d in api.discounts) {
@@ -290,10 +276,8 @@ class ProductDiscount {
   final String id;
   final String name;
 
-  /// "percentage" or "fixed". The POS admin sees these labelled as
-  /// "Percentage %" / "Fixed Amount" — matches the backend enum.
-  /// (Historic note: earlier we mistakenly checked for "flat" here,
-  /// so fixed-amount discounts silently didn't apply. Fixed now.)
+  /// "percentage" or "fixed" — backend's enum. `isFixed` / `isPercentage`
+  /// getters below are what the math sites actually check.
   final String type;
   final double rate;
 
@@ -325,14 +309,12 @@ class ProductDiscount {
     return '-Rs ${rate.toStringAsFixed(0)} each';
   }
 
-  /// True for the fixed-amount variant. Accepts both `"fixed"` (what
-  /// the backend actually returns today) and `"flat"` (older/legacy
-  /// naming). Every discount math site in the app — cart total,
-  /// checkout preview, invoice — routes through this getter, so adding
-  /// another alias later is a one-line change here.
+  /// True for fixed-amount discounts. Accepts "fixed" (current backend)
+  /// and "flat" (older naming) — every discount math site routes
+  /// through here so adding another alias is a one-line change.
   bool get isFixed => type == 'fixed' || type == 'flat';
 
-  /// True for the percentage variant.
+  /// True for percentage discounts.
   bool get isPercentage => type == 'percentage';
 
   /// Applies this discount rule to [price] and returns the discounted

@@ -202,13 +202,10 @@ class ApiProductDiscount {
   /// For percentage: 10 means 10%. For flat: the absolute amount.
   final num? rate;
 
-  /// Rule-level flag from the backend — parsed for completeness but
-  /// NOT gated on when deciding whether to apply the discount. In
-  /// practice the POS's Enable/Disable toggle on a product actually
-  /// adds/removes the rule from the product's `discounts` array
-  /// (presence = applied) and doesn't touch this field, so gating on
-  /// it here would silently drop every attached discount. See
-  /// `Product._resolveAutoDiscount` for the actual apply logic.
+  /// Parsed for completeness but NOT gated on — the POS's toggle
+  /// adds/removes the rule from `discounts[]` rather than flipping
+  /// this flag, so we key off array presence instead. See
+  /// `Product._resolveAutoDiscount`.
   final bool isEnabled;
 
   const ApiProductDiscount({

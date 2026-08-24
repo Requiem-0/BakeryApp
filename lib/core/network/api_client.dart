@@ -55,12 +55,10 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  /// GET with cache-busting on by default. `Cache-Control: no-cache`
-  /// tells any middleware between us and the API (nginx, CDNs, mobile
-  /// carrier proxies) to revalidate rather than serve a cached copy.
-  /// Pair with a per-request timestamp so URL-level caches also miss.
-  /// [bustCache] is opt-out for the rare read where a stale copy is
-  /// fine (nothing today).
+  /// GET with cache-busting on by default — no-cache headers plus a
+  /// timestamp query so proxies/CDNs can't hand us stale data (which
+  /// is why refreshes after a POS update were sometimes silent before).
+  /// Pass bustCache: false if a stale read is genuinely fine.
   Future<Response<dynamic>> get(
     String path, {
     Map<String, dynamic>? query,

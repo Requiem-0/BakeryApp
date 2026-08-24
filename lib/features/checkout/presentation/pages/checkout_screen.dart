@@ -13,6 +13,7 @@ import '../../../../core/constants.dart';
 import '../../../../features/address/presentation/widgets/address_selector.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../features/orders/data/models/order.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
 import '../../../../features/orders/presentation/providers/order_provider.dart';
 import '../../../../features/catalogue/presentation/providers/catalogue_provider.dart';
@@ -82,10 +83,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       deliveryLocation: addr.address,
     );
 
-    if (!mounted) return;
-    setState(() => _isPlacing = false);
-
     if (!success) {
+      if (!mounted) return;
+      setState(() => _isPlacing = false);
       AppToast.error(
         context,
         orderProvider.errorMessage ?? 'Failed to place order.',
@@ -101,10 +101,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final displayId = (serverId != null && serverId.length >= 4)
         ? '#OD-${serverId.substring(serverId.length - 4).toUpperCase()}'
         : '#OD-${DateTime.now().millisecondsSinceEpoch % 10000}';
-    // Reverse-compute the original price + discount per line. The
-    // cart's unitPrice is already post-discount (backend resolves it),
-    // so we project back through the rule's rate to get the pre-discount
-    // figure for the success-screen breakdown.
+
+    // Backend is the source of truth for tax/discount/total. Fetch
+    // the placed ticket so the success screen matches what the
+    // invoice sheet will show later; 4s cap so a slow lookup can't
+    // hang the flow. On fallback we use client values.
+    Order? server;
+    if (serverId != null && serverId.isNotEmpty) {
+      try {
+        server = await orderProvider
+            .fetchTicketDetails(serverId)
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {
+        server = null;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _isPlacing = false);
+
+    // Fallback subtotal + discount, only used when server is null.
+    // cart.unitPrice is already post-discount, so project back through
+    // the rule rate to recover the pre.
     double subtotalPre = 0;
     double discountTotal = 0;
     for (final i in cart.items) {
@@ -125,9 +143,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       discountTotal += preLineTotal - paidLineTotal;
     }
 
-    // Snapshot tax at the moment of placing — cart is about to clear.
-    final placedTax = cart.taxTotal;
+    // Server wins when we have it, cart values backfill. Pre-discount
+    // subtotal = total − tax + discount for exclusive mode; inclusive
+    // tax is baked into the total so we skip the subtraction.
+    final placedTax = server?.tax ?? cart.taxTotal;
+    final placedDiscount = server?.discount ?? discountTotal;
+    final placedTotal = server?.total ?? cart.total;
     final placedTaxInclusive = cart.isTaxInclusive;
+    final placedSubtotal = server != null
+        ? placedTotal +
+            placedDiscount -
+            (placedTaxInclusive ? 0 : placedTax)
+        : subtotalPre;
 
     final placed = PlacedOrder(
       id: displayId,
@@ -154,11 +181,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           addons: addonLabels,
         );
       }).toList(),
-      subtotal: subtotalPre,
-      discount: discountTotal,
+      subtotal: placedSubtotal,
+      discount: placedDiscount,
       tax: placedTax,
       isTaxInclusive: placedTaxInclusive,
-      total: cart.total,
+      total: placedTotal,
       addressLabel: addr.label,
       addressFull: addr.address,
     );
@@ -405,14 +432,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   Text('Free', style: receiptStyle),
                                 ],
                               ),
-                              // Tax row — surfaces only when the
-                              // business has an active tax rule the
-                              // cart could apply. For inclusive mode
-                              // it's rendered but flagged as
-                              // "included" so the grand total below
-                              // stays consistent with the ticket price.
-                              // The label is tappable → opens the
-                              // TaxPolicySheet with the rate + mode.
+                              // Tax row — only when there's a rule
+                              // to apply. Inclusive mode shows
+                              // "(incl.)" so the grand total stays
+                              // consistent. Tap ⓘ for the policy.
                               if (tax > 0) ...[
                                 const SizedBox(height: 4),
                                 Row(
