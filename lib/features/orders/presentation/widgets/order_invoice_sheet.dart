@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../shared/widgets/item_image.dart';
 import '../../data/models/order.dart';
 import '../../../../core/constants.dart';
 import '../../../../core/brandkit/app_theme.dart';
 import '../../../businesses/presentation/widgets/tax_policy_sheet.dart';
+import '../providers/order_provider.dart';
 
 /// Bottom sheet showing a receipt-style invoice for a past order.
+///
+/// [order] is the snapshot passed in at open time. If [OrderProvider]
+/// still has an entry with the same id when we rebuild, we prefer that
+/// live copy — so an open sheet reflects status changes (e.g. POS marks
+/// the order paid) as soon as `fetchOrders` returns. Falls back to the
+/// snapshot when the order has been evicted (rare — happens only if
+/// history is cleared while the sheet is open).
 class OrderInvoiceSheet extends StatelessWidget {
   final Order order;
 
@@ -29,6 +38,18 @@ class OrderInvoiceSheet extends StatelessWidget {
         const TextStyle();
     final headerStyle =
         receiptStyle.copyWith(color: theme.textTheme.bodySmall?.color);
+
+    // Live-lookup: if OrderProvider has a fresher copy of this id, use
+    // it so the sheet doesn't get stuck on a stale snapshot when the
+    // POS updates status while the sheet is open. The `context.select`
+    // scopes the rebuild to just this order's identity, so unrelated
+    // provider notifications don't cause the whole sheet to redraw.
+    final order = context.select<OrderProvider, Order>((prov) {
+      for (final o in prov.orders) {
+        if (o.id == this.order.id) return o;
+      }
+      return this.order;
+    });
 
     // Status badge palette matches the OrderCard's _StatusBadge logic
     // so the receipt and the card never disagree on what an order's
