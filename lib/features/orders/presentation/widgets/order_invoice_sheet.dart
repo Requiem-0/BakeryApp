@@ -171,7 +171,21 @@ class OrderInvoiceSheet extends StatelessWidget {
                 const SizedBox(height: 12),
                 // Total — lineTotals above already render post-discount
                 // (item.unitTotal × qty), so they sum to order.total.
-                // Clean bill format — no separate discount line.
+                // Tax row only when the ticket actually carried tax so
+                // pre-VAT bakeries keep the clean single-line format.
+                if (order.tax > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Tax', style: theme.textTheme.bodySmall),
+                      Text(
+                        AppConstants.formatPrice(order.tax),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

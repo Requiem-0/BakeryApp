@@ -4,6 +4,7 @@ import '../../../../core/brandkit/app_decorations.dart';
 import '../../../../core/brandkit/app_text_styles.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
+import '../../../businesses/presentation/providers/business_provider.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import 'product_image_box.dart';
 
@@ -51,6 +52,13 @@ class ProductCard extends StatelessWidget {
     final qty = context.select<CartProvider, int>((cart) => cart.items
         .where((i) => i.product.id == product.id)
         .fold(0, (sum, i) => sum + i.quantity));
+
+    // "+VAT" hint shown next to the price for taxable products under
+    // an exclusive-tax config. Skipped for tax-inclusive stores and
+    // for non-taxable line items so the badge stays truthful.
+    final addsTax = priceOverride == null &&
+        product.isTaxable &&
+        context.select<BusinessProvider, bool>((b) => b.addsExclusiveTax);
 
     return GestureDetector(
       onTap: onTap,
@@ -153,6 +161,23 @@ class ProductCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  // "+VAT" — quiet uppercase hint
+                                  // right of the price. Only added
+                                  // for taxable products under
+                                  // exclusive-mode tax; see [addsTax].
+                                  if (addsTax) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '+VAT',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

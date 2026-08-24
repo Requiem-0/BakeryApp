@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../catalogue/data/models/api_product.dart';
 import '../../data/models/api_business.dart';
+import '../../data/models/api_tax.dart';
 import '../../data/repositories/business_repository.dart';
 
 enum BusinessLoadState { idle, loading, ready, error }
@@ -48,6 +49,33 @@ class BusinessProvider extends ChangeNotifier {
   String? get currentError => _currentError;
 
 
+  // Tax config for [_currentBusiness]. Loaded alongside the business on
+  // bootstrap so the cart can apply VAT etc. from the first render.
+  // Null when the business hasn't set one up or the endpoint failed —
+  // callers treat null as "no tax to apply".
+  ApiTaxConfig? _taxConfig;
+
+  ApiTaxConfig? get taxConfig => _taxConfig;
+
+  /// True when the current business has an active tax rule that gets
+  /// ADDED to product prices (exclusive mode). Product cards read this
+  /// via `context.select` to decide whether to show a "+VAT" hint next
+  /// to the sticker price — so the customer knows the shown number
+  /// isn't the final one they'll pay. False for inclusive mode (tax
+  /// already in the price) and when no config has loaded.
+  bool get addsExclusiveTax {
+    final t = _taxConfig;
+    if (t == null) return false;
+    if (!t.hasActiveTax) return false;
+    return t.settings.isExclusive;
+  }
+
+  /// Combined enabled tax rate as a percentage (e.g. 13.0 for VAT-only).
+  /// Zero when no config or no enabled rules — safe to render as
+  /// `"${rate}%"` without a null guard.
+  double get taxRatePercent => _taxConfig?.totalEnabledRate ?? 0;
+
+
   ApiBusiness? _selectedBusiness;
   List<ApiProduct> _selectedProducts = const [];
   BusinessLoadState _selectedState = BusinessLoadState.idle;
@@ -63,10 +91,16 @@ class BusinessProvider extends ChangeNotifier {
   /// tests or multi-business builds). Other slots (all/featured) stay
   /// idle — the screens that surface them trigger their own loads to
   /// avoid hammering the API at startup before UI needs the data.
+  ///
+  /// Also kicks off the tax-config fetch for the same business in
+  /// parallel so the cart can render its Tax line as soon as the first
+  /// item lands — no second UI beat.
   Future<void> bootstrap({String? currentBusinessId}) async {
-    if (currentBusinessId != null && currentBusinessId.isNotEmpty) {
-      await loadCurrent(currentBusinessId);
-    }
+    if (currentBusinessId == null || currentBusinessId.isEmpty) return;
+    await Future.wait<void>([
+      loadCurrent(currentBusinessId),
+      _loadTaxConfig(currentBusinessId),
+    ]);
   }
 
 
@@ -87,6 +121,20 @@ class BusinessProvider extends ChangeNotifier {
       _currentState = BusinessLoadState.error;
     }
     notifyListeners();
+  }
+
+  /// Fetches the tax config for the current business. Silently no-ops on
+  /// failure — the cart just skips tax math when [taxConfig] is null,
+  /// which is the correct fallback (better to under-charge than to
+  /// invent a rate). Not exposed via a load-state slot because there's
+  /// no dedicated tax UI to reflect it — cart / checkout read [taxConfig]
+  /// directly and render accordingly.
+  Future<void> _loadTaxConfig(String businessId) async {
+    final result = await _repo.getTaxConfig(businessId);
+    if (result.isSuccess) {
+      _taxConfig = result.data;
+      notifyListeners();
+    }
   }
 
 

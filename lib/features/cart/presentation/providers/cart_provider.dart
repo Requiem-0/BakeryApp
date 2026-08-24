@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants.dart';
+import '../../../businesses/data/models/api_tax.dart';
 import '../../../catalogue/data/models/product.dart';
 import '../../../orders/data/models/order.dart';
 import '../../data/models/api_cart.dart';
@@ -37,6 +38,10 @@ class CartProvider extends ChangeNotifier {
   /// instead of hardcoding. 0 until the business loads.
   double Function()? _serviceChargeResolver;
 
+  /// Reads the business's tax config (VAT rules + mode). Null until the
+  /// business tax fetch completes — treated as "no tax to apply".
+  ApiTaxConfig? Function()? _taxConfigResolver;
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -45,10 +50,12 @@ class CartProvider extends ChangeNotifier {
     required bool Function() isAuthenticated,
     Product? Function(String productId)? productResolver,
     double Function()? serviceChargeResolver,
+    ApiTaxConfig? Function()? taxConfigResolver,
   })  : _repo = repository,
         _isAuthenticated = isAuthenticated,
         _productResolver = productResolver,
-        _serviceChargeResolver = serviceChargeResolver;
+        _serviceChargeResolver = serviceChargeResolver,
+        _taxConfigResolver = taxConfigResolver;
 
   /// Late-bound resolver — main.dart needs to wire the cart before the
   /// catalogue provider is constructed, so we expose a setter so the
@@ -65,6 +72,13 @@ class CartProvider extends ChangeNotifier {
   /// the cart's [serviceCharge] reflects the live business config.
   set serviceChargeResolver(double Function()? resolver) {
     _serviceChargeResolver = resolver;
+    notifyListeners();
+  }
+
+  /// Late-bound — set this from main.dart once BusinessProvider exists
+  /// so the cart's [taxTotal] reflects the live business tax config.
+  set taxConfigResolver(ApiTaxConfig? Function()? resolver) {
+    _taxConfigResolver = resolver;
     notifyListeners();
   }
 
@@ -93,9 +107,9 @@ class CartProvider extends ChangeNotifier {
           .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
       final paid = (i.unitPrice + addonPerUnit) * i.quantity;
       double pre = paid;
-      if (disc.type == 'percentage' && disc.rate < 100) {
+      if (disc.isPercentage && disc.rate < 100) {
         pre = paid / (1 - disc.rate / 100);
-      } else if (disc.type == 'flat') {
+      } else if (disc.isFixed) {
         pre = paid + disc.rate * i.quantity;
       }
       total += pre - paid;
@@ -112,7 +126,63 @@ class CartProvider extends ChangeNotifier {
     return _serviceChargeResolver?.call() ?? 0;
   }
 
-  double get total => subtotal + serviceCharge;
+  /// Total tax owed on this cart, computed from the live business tax
+  /// config. Sums the `lineTotal` of every taxable product (respecting
+  /// the `isAddonTaxEnabled` flag for add-ons) and applies the summed
+  /// enabled rate.
+  ///
+  /// Behaviour differs by mode:
+  ///   • `exclusive` — the returned amount is what gets added ON TOP of
+  ///     the subtotal to form the grand total. Shows as a Tax line item.
+  ///   • `inclusive` — prices already include tax; the returned amount
+  ///     is the portion of the paid price that IS tax, for receipt
+  ///     breakdown. Grand total stays the same (see [total]).
+  ///
+  /// Returns 0 when the tax config hasn't loaded, when there are no
+  /// enabled rules, or when nothing in the cart is taxable — so the
+  /// cart quietly under-charges rather than inventing a rate.
+  double get taxTotal {
+    if (_items.isEmpty) return 0;
+    final config = _taxConfigResolver?.call();
+    if (config == null || !config.hasActiveTax) return 0;
+    final rate = config.totalEnabledRate;
+
+    double base = 0;
+    for (final i in _items) {
+      if (!i.product.isTaxable) continue;
+      // Product portion (already post-discount).
+      base += i.unitPrice * i.quantity;
+      // Addon portion — only if the admin opted in.
+      if (config.settings.isAddonTaxEnabled) {
+        final addonPerUnit = i.addons
+            .fold<double>(0, (s, a) => s + a.unitPrice * a.quantity);
+        base += addonPerUnit * i.quantity;
+      }
+    }
+    if (base <= 0) return 0;
+
+    if (config.settings.isInclusive) {
+      // tax is (rate / (100 + rate)) of the tax-included price.
+      return base * (rate / (100 + rate));
+    }
+    return base * (rate / 100);
+  }
+
+  double get total {
+    final base = subtotal + serviceCharge;
+    final config = _taxConfigResolver?.call();
+    // Exclusive tax gets ADDED to reach the grand total; inclusive tax
+    // is already baked into subtotal so total stays put.
+    if (config == null || config.settings.isInclusive) return base;
+    return base + taxTotal;
+  }
+
+  /// True when the live tax config uses inclusive-tax pricing. Drives
+  /// the checkout/invoice labels ("Tax (incl.)" instead of "Tax") so
+  /// the customer knows the amount isn't ADDED on top of the total.
+  /// False when there's no config yet or no tax applies.
+  bool get isTaxInclusive =>
+      _taxConfigResolver?.call()?.settings.isInclusive ?? false;
 
   bool contains(Product product) =>
       _items.any((i) => i.product.id == product.id);

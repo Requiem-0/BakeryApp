@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
+import '../../../businesses/presentation/providers/business_provider.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -206,6 +207,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Builder(
                           builder: (context) {
                             final showStrike = paidUnit < stickerUnit;
+                            // "+VAT" hint on the hero price when the
+                            // product participates in the business's
+                            // exclusive-mode tax — same rules the
+                            // list/grid cards use, kept in sync via
+                            // BusinessProvider.addsExclusiveTax.
+                            final addsTax = widget.product.isTaxable &&
+                                context.select<BusinessProvider, bool>(
+                                    (b) => b.addsExclusiveTax);
                             return Row(
                               crossAxisAlignment:
                                   CrossAxisAlignment.baseline,
@@ -239,6 +248,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         fontWeight: FontWeight.w700,
                                       ),
                                 ),
+                                if (addsTax) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '+VAT',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                  ),
+                                ],
                               ],
                             );
                           },

@@ -18,12 +18,14 @@ abstract final class AppConstants {
 
   /// `true` for prod builds, `false` for dev. Touches [apiBaseUrl],
   /// [imageHostUrl], and [bakeryBusinessId] in one shot.
-  static const bool useProd = true;
+  static const bool useProd = false;
 
-  /// Beta's "sakjfhaskj" — the test catalogue with every variant +
-  /// addon shape we needed to debug against (Momo's 2-axis variants,
-  /// Simmi's variant+addon combo, Cafe Lungo's addon-only setup, etc).
-  static const String devBusinessId = '69ccbebf7b052d7ab7e0b435';
+  /// Beta business to test stuff for the app. Currently pointed at
+  /// "abababa" — a POS-populated test bakery that carries an active VAT
+  /// (13% exclusive) and a couple of discount rules (both percentage
+  /// and fixed), so cart / discount / tax math can be smoke-tested
+  /// against real backend data without touching prod.
+  static const String devBusinessId = '6a8a87631d9c3a6661f3bb12';
 
   /// Breaking Bread Pvt Ltd — the actual customer.
   static const String prodBusinessId = '65db0f54d0199c9b3dc7ab15';

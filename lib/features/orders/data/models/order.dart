@@ -31,10 +31,11 @@ class OrderItemDiscount {
   final String id;
   final String name;
 
-  /// "percentage" or "flat" — backend's own enum.
+  /// "percentage" or "fixed" — backend's own enum. (Older payloads
+  /// used "flat"; treat both as fixed-amount when reading.)
   final String type;
 
-  /// For percentage: 10 means 10%. For flat: the absolute amount.
+  /// For percentage: 10 means 10%. For fixed: the absolute amount.
   final double rate;
 
   const OrderItemDiscount({

@@ -179,9 +179,27 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                         Divider(height: 20, color: theme.dividerColor),
                         // Total — line items above are already
                         // post-discount (item.price = unitPrice +
-                        // addonPerUnit), so they sum to o.total.
-                        // Clean bill format — no separate discount
-                        // breakdown below.
+                        // addonPerUnit), so they sum to (subtotal −
+                        // discount). Show the Tax line only when the
+                        // order actually had tax so bakeries running
+                        // tax-free don't get an empty row.
+                        if (o.tax > 0) ...[
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                o.isTaxInclusive ? 'Tax (incl.)' : 'Tax',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              Text(
+                                AppConstants.formatPrice(o.tax),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

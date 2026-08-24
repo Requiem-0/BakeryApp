@@ -114,15 +114,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       double preLineTotal = paidLineTotal;
       if (disc != null && disc.rate > 0) {
-        if (disc.type == 'percentage' && disc.rate < 100) {
+        if (disc.isPercentage && disc.rate < 100) {
           preLineTotal = paidLineTotal / (1 - disc.rate / 100);
-        } else if (disc.type == 'flat') {
+        } else if (disc.isFixed) {
           preLineTotal = paidLineTotal + disc.rate * i.quantity;
         }
       }
       subtotalPre += preLineTotal;
       discountTotal += preLineTotal - paidLineTotal;
     }
+
+    // Snapshot tax at the moment of placing — cart is about to clear.
+    final placedTax = cart.taxTotal;
+    final placedTaxInclusive = cart.isTaxInclusive;
 
     final placed = PlacedOrder(
       id: displayId,
@@ -151,6 +155,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }).toList(),
       subtotal: subtotalPre,
       discount: discountTotal,
+      tax: placedTax,
+      isTaxInclusive: placedTaxInclusive,
       total: cart.total,
       addressLabel: addr.label,
       addressFull: addr.address,
@@ -181,6 +187,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // in the gap between Subtotal and Grand Total.
     final discount = cart.discountTotal;
     final subtotal = cart.subtotal + discount;
+    // Tax reads live from the business config. For exclusive mode this
+    // is the amount ADDED to reach [total]; for inclusive mode it's the
+    // portion of subtotal already inside prices — shown for
+    // transparency but doesn't affect the grand total.
+    final tax = cart.taxTotal;
     final total = cart.total;
 
     return Scaffold(
@@ -393,6 +404,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   Text('Free', style: receiptStyle),
                                 ],
                               ),
+                              // Tax row — surfaces only when the
+                              // business has an active tax rule the
+                              // cart could apply. For inclusive mode
+                              // it's rendered but flagged as
+                              // "included" so the grand total below
+                              // stays consistent with the ticket price.
+                              if (tax > 0) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      cart.isTaxInclusive
+                                          ? 'Tax (incl.)'
+                                          : 'Tax',
+                                      style: headerStyle,
+                                    ),
+                                    Text(
+                                      AppConstants.formatPrice(tax),
+                                      style: receiptStyle,
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               Row(
                                 mainAxisAlignment:

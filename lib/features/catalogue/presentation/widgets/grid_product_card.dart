@@ -4,6 +4,7 @@ import '../../../../core/brandkit/app_decorations.dart';
 import '../../../../core/brandkit/app_text_styles.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
+import '../../../businesses/presentation/providers/business_provider.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import 'product_image_box.dart';
 
@@ -31,6 +32,13 @@ class GridProductCard extends StatelessWidget {
     final qty = context.select<CartProvider, int>((cart) => cart.items
         .where((i) => i.product.id == product.id)
         .fold(0, (sum, i) => sum + i.quantity));
+
+    // "+VAT" hint next to the price so customers aren't surprised by
+    // the extra 13% at checkout. Only shows for taxable products
+    // when the business runs exclusive-mode tax — inclusive prices
+    // already include VAT so no hint is needed there.
+    final addsTax = product.isTaxable &&
+        context.select<BusinessProvider, bool>((b) => b.addsExclusiveTax);
 
     return GestureDetector(
       onTap: onTap,
@@ -124,12 +132,37 @@ class GridProductCard extends StatelessWidget {
                           ),
                         ),
                       Expanded(
-                        child: Text(
-                          AppConstants.formatPrice(
-                              product.discountedPrice ?? product.price),
-                          style: AppTextStyles.price.copyWith(
-                              color: colors.primary),
-                          overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                AppConstants.formatPrice(
+                                    product.discountedPrice ?? product.price),
+                                style: AppTextStyles.price
+                                    .copyWith(color: colors.primary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // "+VAT" — visually quiet, small caps, sits
+                            // to the right of the price with a tight
+                            // gap. Skipped for non-taxable products or
+                            // when no exclusive tax config applies.
+                            if (addsTax) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '+VAT',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(width: 4),

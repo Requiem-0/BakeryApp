@@ -3,6 +3,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_result.dart';
 import '../../../../core/utils/json_helpers.dart';
 import '../models/api_business.dart';
+import '../models/api_tax.dart';
 
 /// Wraps the /api/businesses/* endpoints. Stateless — returns ApiResult<T>.
 class BusinessRepository {
@@ -126,6 +127,37 @@ class BusinessRepository {
         '/businesses/location/${Uri.encodeComponent(location)}',
       );
       return _parseBusinessList(res.data);
+    } catch (e) {
+      return ApiResult.failure(ApiClient.parseError(e));
+    }
+  }
+
+  /// GET /api/businesses/{businessId}/tax/getall
+  ///
+  /// Returns the business's tax configuration — VAT / service tax rules,
+  /// exclusive-vs-inclusive mode, addon-tax toggle. See [ApiTaxConfig]
+  /// for the shape the cart consumes.
+  ///
+  /// Response envelope is
+  ///   `{ status: "success", data: { tax: [ {...config} ] } }`
+  /// — a list even though there's only ever one active config. Returns
+  /// `ApiResult.success(null)` when the business has no tax setup yet.
+  Future<ApiResult<ApiTaxConfig?>> getTaxConfig(String businessId) async {
+    try {
+      final res = await _api.get('/businesses/$businessId/tax/getall');
+      final data = res.data;
+      if (data is! Map<String, dynamic>) {
+        return ApiResult.failure(const ApiFailure(
+          message: 'We couldn\'t load tax settings. Please try again.',
+        ));
+      }
+      final payload = data['data'];
+      if (payload is! Map<String, dynamic>) return ApiResult.success(null);
+      final list = payload['tax'];
+      if (list is! List || list.isEmpty) return ApiResult.success(null);
+      final first = list.first;
+      if (first is! Map<String, dynamic>) return ApiResult.success(null);
+      return ApiResult.success(ApiTaxConfig.fromJson(first));
     } catch (e) {
       return ApiResult.failure(ApiClient.parseError(e));
     }

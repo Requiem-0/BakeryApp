@@ -12,8 +12,18 @@ class PlacedOrder {
   /// items in the order carry an active rule.
   final double discount;
 
+  /// Tax added on top of the (post-discount) subtotal. Zero when the
+  /// business has no active tax config, or when nothing in the order
+  /// was flagged taxable.
+  final double tax;
+
+  /// True when the tax was priced-in rather than added on top — used
+  /// by the receipt so the label reads "Tax (incl.)" and doesn't
+  /// imply an extra charge.
+  final bool isTaxInclusive;
+
   /// Final amount the customer owes — [subtotal] minus [discount] plus
-  /// any service charge.
+  /// any service charge, plus [tax] when exclusive.
   final double total;
 
   final String addressLabel;
@@ -29,6 +39,8 @@ class PlacedOrder {
     required this.addressFull,
     this.subtotal = 0,
     this.discount = 0,
+    this.tax = 0,
+    this.isTaxInclusive = false,
     this.status = 'Processing',
   });
 }

@@ -194,14 +194,21 @@ class ApiProductDiscount {
   final String id;
   final String? name;
 
-  /// "percentage" or "flat". Empty when the backend returned a bare id.
+  /// "percentage" or "fixed". Empty when the backend returned a bare id.
+  /// (Backend also historically emitted "flat" for this — the UI-level
+  /// [ProductDiscount.isFixed] getter accepts both spellings.)
   final String? type;
 
   /// For percentage: 10 means 10%. For flat: the absolute amount.
   final num? rate;
 
-  /// False when the admin paused the rule. We still parse it but the
-  /// badge / cart auto-apply should ignore disabled entries.
+  /// Rule-level flag from the backend — parsed for completeness but
+  /// NOT gated on when deciding whether to apply the discount. In
+  /// practice the POS's Enable/Disable toggle on a product actually
+  /// adds/removes the rule from the product's `discounts` array
+  /// (presence = applied) and doesn't touch this field, so gating on
+  /// it here would silently drop every attached discount. See
+  /// `Product._resolveAutoDiscount` for the actual apply logic.
   final bool isEnabled;
 
   const ApiProductDiscount({

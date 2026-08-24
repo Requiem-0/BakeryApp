@@ -185,12 +185,20 @@ Future<void> main() async {
     // 0 if no business has loaded yet — never assumes a hardcoded fee.
     serviceChargeResolver: () =>
         (businessProvider.current?.orderChargePerOrder ?? 0).toDouble(),
+    // Live tax config for the current business — VAT rules, mode
+    // (exclusive/inclusive), addon-tax toggle. Null until the /tax/getall
+    // fetch resolves; the cart treats null as "no tax to apply" rather
+    // than inventing a rate.
+    taxConfigResolver: () => businessProvider.taxConfig,
   );
   // Re-notify the cart whenever the business changes so the displayed
-  // total in the cart summary updates with the live service charge.
+  // total in the cart summary updates with the live service charge and
+  // tax config (both come from BusinessProvider, so one listener covers
+  // both slots).
   businessProvider.addListener(() {
     cartProvider.serviceChargeResolver = () =>
         (businessProvider.current?.orderChargePerOrder ?? 0).toDouble();
+    cartProvider.taxConfigResolver = () => businessProvider.taxConfig;
   });
   // When the catalogue finishes loading after the cart already hydrated,
   // upgrade any thin cart Products (no autoDiscount / variants / addons)

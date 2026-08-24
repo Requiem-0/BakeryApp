@@ -50,6 +50,12 @@ class Product {
   /// are intentionally excluded.
   final ProductDiscount? autoDiscount;
 
+  /// Whether this product participates in the business's tax rules
+  /// (e.g. VAT). Non-taxable products (`isTaxable: false` on the API)
+  /// are excluded from the cart's tax base — mirrors the POS behaviour
+  /// so bakery receipts line up with the shop's own bills.
+  final bool isTaxable;
+
   const Product({
     required this.id,
     this.adminId,
@@ -67,6 +73,7 @@ class Product {
     this.variantItems = const [],
     this.addons = const [],
     this.autoDiscount,
+    this.isTaxable = false,
   });
 
   /// True when this product needs the customer to choose a variant before
@@ -141,16 +148,35 @@ class Product {
           .map(ProductAddon.fromApi)
           .toList(),
       autoDiscount: autoDiscount,
+      isTaxable: api.isTaxable,
     );
   }
 
-  /// Returns the first enabled discount the backend will auto-apply
-  /// for this product, or null. Selective discounts (coupon codes)
-  /// don't qualify — those require customer input we don't surface.
+  /// Returns the first discount rule attached to this product that the
+  /// backend will auto-apply, or null.
+  ///
+  /// The backend's semantics — matched by the POS-side ordering app
+  /// that already ships — is that **presence in the `discounts` array
+  /// means the rule applies**. The `isEnabled` field on the rule
+  /// object is a separate global-rule flag the POS toggle doesn't
+  /// touch when attaching/detaching a rule from a product, so we
+  /// intentionally do NOT gate on it here. The POS's "Enabled"
+  /// toggle actually adds/removes the rule from the product's
+  /// `discounts` array — so an empty array = no discount, a populated
+  /// array = apply.
+  ///
+  /// Requirements to apply:
+  ///   • `discountType == "applyEverytime"` — selective (coupon-code)
+  ///     rules need customer input we don't surface
+  ///   • at least one rule with a positive `rate`
+  ///
+  /// Bare-string rule entries (some endpoints return just IDs — see
+  /// [ApiProduct._parseDiscounts]) get skipped here because `rate`
+  /// is null; the caller should have hydrated from a list endpoint
+  /// that returns full metadata.
   static ProductDiscount? _resolveAutoDiscount(ApiProduct api) {
     if (api.discountType != 'applyEverytime') return null;
     for (final d in api.discounts) {
-      if (!d.isEnabled) continue;
       if (d.rate == null || d.rate! <= 0) continue;
       return ProductDiscount(
         id: d.id,
@@ -264,7 +290,10 @@ class ProductDiscount {
   final String id;
   final String name;
 
-  /// "percentage" or "flat".
+  /// "percentage" or "fixed". The POS admin sees these labelled as
+  /// "Percentage %" / "Fixed Amount" — matches the backend enum.
+  /// (Historic note: earlier we mistakenly checked for "flat" here,
+  /// so fixed-amount discounts silently didn't apply. Fixed now.)
   final String type;
   final double rate;
 
@@ -296,16 +325,26 @@ class ProductDiscount {
     return '-Rs ${rate.toStringAsFixed(0)} each';
   }
 
+  /// True for the fixed-amount variant. Accepts both `"fixed"` (what
+  /// the backend actually returns today) and `"flat"` (older/legacy
+  /// naming). Every discount math site in the app — cart total,
+  /// checkout preview, invoice — routes through this getter, so adding
+  /// another alias later is a one-line change here.
+  bool get isFixed => type == 'fixed' || type == 'flat';
+
+  /// True for the percentage variant.
+  bool get isPercentage => type == 'percentage';
+
   /// Applies this discount rule to [price] and returns the discounted
   /// amount. Mirrors the backend's per-line projection so the UI can
   /// preview what the cart will charge before the customer hits add.
   double apply(double price) {
     if (rate <= 0) return price;
-    if (type == 'percentage') {
+    if (isPercentage) {
       if (rate >= 100) return 0;
       return price * (1 - rate / 100);
     }
-    if (type == 'flat') {
+    if (isFixed) {
       final result = price - rate;
       return result < 0 ? 0 : result;
     }
