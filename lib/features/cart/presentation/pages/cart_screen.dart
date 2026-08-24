@@ -19,6 +19,7 @@ import '../../../../core/brandkit/app_text_styles.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../businesses/presentation/widgets/tax_policy_sheet.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -297,6 +298,25 @@ class CartScreen extends StatelessWidget {
                                     label: 'Service charge',
                                     value: cart.serviceCharge),
                               ],
+                              // Tax row — surfaces only when the
+                              // business has an active VAT rule. For
+                              // inclusive-mode the label carries "incl."
+                              // so the Total below reads consistently
+                              // with what the customer will actually pay.
+                              // The ⓘ opens the TaxPolicySheet so the
+                              // customer can see the rate + mode
+                              // without having to trust the number.
+                              if (cart.taxTotal > 0) ...[
+                                const SizedBox(height: 10),
+                                _PriceSummaryRow(
+                                  label: cart.isTaxInclusive
+                                      ? 'Tax (incl.)'
+                                      : 'Tax',
+                                  value: cart.taxTotal,
+                                  onInfoTap: () =>
+                                      TaxPolicySheet.show(context),
+                                ),
+                              ],
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 12),
@@ -363,10 +383,16 @@ class _PriceSummaryRow extends StatelessWidget {
   /// the discount row to render in the theme's error colour.
   final Color? color;
 
+  /// When non-null, an info ⓘ icon renders right after the label and
+  /// the label + icon become a tappable target — used by the Tax row
+  /// to open the [TaxPolicySheet] so customers can see the rate/mode.
+  final VoidCallback? onInfoTap;
+
   const _PriceSummaryRow({
     required this.label,
     required this.value,
     this.color,
+    this.onInfoTap,
   });
 
   @override
@@ -376,10 +402,35 @@ class _PriceSummaryRow extends StatelessWidget {
     final display = isNegative
         ? '− ${AppConstants.formatPrice(-value)}'
         : AppConstants.formatPrice(value);
+    final labelWidget = Text(label,
+        style: theme.textTheme.bodySmall?.copyWith(color: color));
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+        if (onInfoTap != null)
+          InkWell(
+            onTap: onInfoTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  labelWidget,
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 14,
+                    color: color ??
+                        theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          labelWidget,
         Text(display,
             style: theme.textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.w600,

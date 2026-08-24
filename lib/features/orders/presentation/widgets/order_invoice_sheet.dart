@@ -3,6 +3,7 @@ import '../../../../shared/widgets/item_image.dart';
 import '../../data/models/order.dart';
 import '../../../../core/constants.dart';
 import '../../../../core/brandkit/app_theme.dart';
+import '../../../businesses/presentation/widgets/tax_policy_sheet.dart';
 
 /// Bottom sheet showing a receipt-style invoice for a past order.
 class OrderInvoiceSheet extends StatelessWidget {
@@ -177,7 +178,28 @@ class OrderInvoiceSheet extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Tax', style: theme.textTheme.bodySmall),
+                      InkWell(
+                        onTap: () => TaxPolicySheet.show(context),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 2, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Tax',
+                                  style: theme.textTheme.bodySmall),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 13,
+                                color:
+                                    theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       Text(
                         AppConstants.formatPrice(order.tax),
                         style: theme.textTheme.bodySmall,

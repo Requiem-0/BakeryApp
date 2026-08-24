@@ -5,6 +5,7 @@ import '../../../../shared/widgets/item_image.dart';
 import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/constants.dart';
 import '../../../../features/orders/data/models/placed_order.dart';
+import '../../../../features/businesses/presentation/widgets/tax_policy_sheet.dart';
 import '../../../../core/utils/responsive.dart';
 
 class OrderSuccessScreen extends StatefulWidget {
@@ -188,9 +189,31 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                             mainAxisAlignment:
                                 MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                o.isTaxInclusive ? 'Tax (incl.)' : 'Tax',
-                                style: theme.textTheme.bodySmall,
+                              InkWell(
+                                onTap: () => TaxPolicySheet.show(context),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 2, vertical: 2),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        o.isTaxInclusive
+                                            ? 'Tax (incl.)'
+                                            : 'Tax',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        size: 13,
+                                        color: theme
+                                            .colorScheme.onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                               Text(
                                 AppConstants.formatPrice(o.tax),

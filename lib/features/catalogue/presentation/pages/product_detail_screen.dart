@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
 import '../../../businesses/presentation/providers/business_provider.dart';
+import '../../../businesses/presentation/widgets/tax_policy_sheet.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -83,6 +84,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   /// Map of addon `_id` → selected quantity. Empty means none. The cart
   /// layer expects exactly this shape on `addProduct`.
   final Map<String, int> _selectedAddons = {};
+
+  /// Renders a tax rate without trailing zeros — "13" not "13.0",
+  /// "13.5" not "13.50". Used by the hero-price sub-line so the rate
+  /// reads cleanly for both whole-number and fractional VATs.
+  static String _formatRate(double rate) =>
+      rate % 1 == 0 ? rate.toStringAsFixed(0) : rate.toString();
 
   @override
   void initState() {
@@ -207,14 +214,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Builder(
                           builder: (context) {
                             final showStrike = paidUnit < stickerUnit;
-                            // "+VAT" hint on the hero price when the
-                            // product participates in the business's
-                            // exclusive-mode tax — same rules the
-                            // list/grid cards use, kept in sync via
-                            // BusinessProvider.addsExclusiveTax.
+                            // "+13% VAT" hint sits inline with the
+                            // price — same grammar as the compact
+                            // "+VAT" chip on the cards, just with the
+                            // rate spelled out since the detail page
+                            // has room. Deliberately NOT computing a
+                            // tax-inclusive total here: showing e.g.
+                            // "Rs 700 → Rs 791 with VAT" right next to
+                            // a discount visually collapses the saving
+                            // (Rs 100 discount ≈ Rs 91 VAT). The tax
+                            // breakdown belongs on the cart / receipt
+                            // where the customer sees the full math at
+                            // once, not on the product hero where the
+                            // discount is the story.
+                            final businessTax = context.select<
+                                BusinessProvider,
+                                (bool, double)>((b) =>
+                                (b.addsExclusiveTax, b.taxRatePercent));
                             final addsTax = widget.product.isTaxable &&
-                                context.select<BusinessProvider, bool>(
-                                    (b) => b.addsExclusiveTax);
+                                businessTax.$1 &&
+                                businessTax.$2 > 0;
+                            final rate = businessTax.$2;
+
                             return Row(
                               crossAxisAlignment:
                                   CrossAxisAlignment.baseline,
@@ -250,18 +271,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ),
                                 if (addsTax) ...[
                                   const SizedBox(width: 8),
-                                  Text(
-                                    '+VAT',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelMedium
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.5,
-                                        ),
+                                  // Tappable chip — opens the tax
+                                  // policy sheet so the customer can
+                                  // see the mode, rate, and add-on
+                                  // treatment without having to trust
+                                  // us blindly.
+                                  InkWell(
+                                    onTap: () =>
+                                        TaxPolicySheet.show(context),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '+ ${_formatRate(rate)}% VAT',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelMedium
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                  fontWeight:
+                                                      FontWeight.w700,
+                                                  letterSpacing: 0.4,
+                                                ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.info_outline_rounded,
+                                            size: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ],
