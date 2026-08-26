@@ -108,7 +108,7 @@ void main() {
 
     test('handles non-Dio errors', () {
       final f = ApiClient.parseError(Exception('boom'));
-      expect(f.message, contains('boom'));
+      expect(f.message, 'Something went wrong. Please try again.');
       expect(f.statusCode, isNull);
     });
   });

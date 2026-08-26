@@ -91,25 +91,42 @@ class CartScreen extends StatelessWidget {
                 child: AppBackButton(),
               )
             : null,
-        title: const Text('Your Cart'),
-        actions: [
-          if (cart.items.isNotEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text(
-                  '${cart.totalCount} item${cart.totalCount != 1 ? 's' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+      ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your Cart',
+                    style: Theme.of(context).textTheme.displayMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${cart.totalCount} item${cart.totalCount != 1 ? 's' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
+            Expanded(
             child: cart.items.isEmpty
-                ? const EmptyCartView()
+                ? LayoutBuilder(
+                    builder: (context, constraints) =>
+                        SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: const EmptyCartView(),
+                      ),
+                    ),
+                  )
                 : RefreshIndicator(
                     // Re-syncs the server-side cart for authed users.
                     // Useful when an item the customer added on the
@@ -367,6 +384,7 @@ class CartScreen extends StatelessWidget {
             ),
         ],
       ),
+    ),
     );
   }
 }

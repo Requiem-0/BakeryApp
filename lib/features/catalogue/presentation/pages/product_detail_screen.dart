@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/brandkit/app_colors.dart';
 import '../../../../core/constants.dart';
 import '../../data/models/product.dart';
 import '../../../businesses/presentation/providers/business_provider.dart';
@@ -146,24 +147,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 expandedHeight: 280,
                 pinned: true,
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                leading: const Padding(
-                  padding: EdgeInsets.only(left: 8.0),
-                  child: AppBackButton(),
+                leading: const Center(
+                  child: AppBackButton(isOverlay: true),
                 ),
                 actions: [
-                  GestureDetector(
-                    onTap: () => favProv.toggle(widget.product.id),
-                    child: Container(
-                      margin: const EdgeInsets.only(
-                          left: 8, right: 16, top: 8, bottom: 8),
-                      width: 40,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).colorScheme.primary,
-                        size: 22,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: Center(
+                      child: _FavoriteOverlayButton(
+                        isFav: isFav,
+                        onTap: () => favProv.toggle(widget.product.id),
                       ),
                     ),
                   ),
@@ -540,6 +533,75 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
 
 
+class _FavoriteOverlayButton extends StatefulWidget {
+  final bool isFav;
+  final VoidCallback onTap;
+
+  const _FavoriteOverlayButton({
+    required this.isFav,
+    required this.onTap,
+  });
+
+  @override
+  State<_FavoriteOverlayButton> createState() => _FavoriteOverlayButtonState();
+}
+
+class _FavoriteOverlayButtonState extends State<_FavoriteOverlayButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final double scale = _isPressed ? 0.92 : (_isHovered ? 1.05 : 1.0);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.beige.withValues(alpha: _isHovered ? 0.95 : 0.85),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.softBrown.withValues(alpha: 0.25),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: _isHovered ? 0.08 : 0.04),
+                  blurRadius: _isHovered ? 6 : 3,
+                  offset: const Offset(0, 1.5),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              widget.isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: widget.isFav ? colors.error : colors.primary,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Full-bleed hero. Image stretches edge-to-edge with `BoxFit.cover`,
 /// emoji renders large + centered on a neutral surface when no URL is
 /// available, and the badge overlays the bottom-left corner.
@@ -572,6 +634,25 @@ class _HeroImage extends StatelessWidget {
           )
         else
           fallback,
+        // Top scrim gradient ensures icons are always high contrast regardless of product image color
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 100,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.35),
+                  Colors.black.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
         if (product.badge != null)
           Positioned(
             bottom: 16,
@@ -589,8 +670,6 @@ class _HeroImage extends StatelessWidget {
                       fontWeight: FontWeight.w600)),
             ),
           ),
-        // Discount pill removed — the strikethrough original price
-        // next to the live unit price now carries the same signal.
       ],
     );
   }

@@ -138,7 +138,9 @@ class _EmptyFavourites extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
+            SizedBox(
+              width: 250,
+              height: 220,
               child: Lottie.asset('assets/animations/empty_fav.json',
                   width: 250, repeat: false, fit: BoxFit.contain),
             ),

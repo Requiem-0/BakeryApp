@@ -36,6 +36,8 @@ final class AppTheme {
         appBarTheme: AppBarTheme(
           backgroundColor: AppColors.warmWhite,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           // Tighter than Flutter's default 56 — the hidden status bar
           // means screens already extend higher, so the standard bar
@@ -227,6 +229,8 @@ final class AppTheme {
         appBarTheme: AppBarTheme(
           backgroundColor: _darkSurface,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           toolbarHeight: 40,
           iconTheme: const IconThemeData(color: AppColors.cream),
