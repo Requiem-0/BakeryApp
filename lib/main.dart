@@ -48,9 +48,9 @@ Future<void> main() async {
   // on the build machine + CI secret store) can still run the app.
   // Without Firebase, exceptions just go to debugPrint as before.
   var crashlyticsReady = false;
-  try {
-    await Firebase.initializeApp();
-    if (!kIsWeb) {
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
       // Crashlytics has no web SDK — only collect on native.
       FlutterError.onError =
           FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -59,9 +59,9 @@ Future<void> main() async {
         return true;
       };
       crashlyticsReady = true;
+    } catch (e) {
+      debugPrint('⚠️ Firebase init skipped (no config?): $e');
     }
-  } catch (e) {
-    debugPrint('⚠️ Firebase init skipped (no config?): $e');
   }
 
   // Fallback Flutter error handler when Crashlytics isn't wired —
@@ -110,12 +110,19 @@ Future<void> main() async {
   final logoCache = LogoCacheService();
   await logoCache.loadCached();
 
-  // Also load the cached business name so the splash doesn't flash a
-  // hardcoded fallback before the API responds.
+  // Load the cached business name if it matches the current environment.
   final prefs = await SharedPreferences.getInstance();
-  final cachedName = prefs.getString('businessName');
-  if (cachedName != null && cachedName.isNotEmpty) {
-    AppConstants.appName = cachedName;
+  final cachedEnv = prefs.getBool('cachedUseProd');
+  if (cachedEnv == AppConstants.useProd) {
+    final cachedName = prefs.getString('businessName');
+    if (cachedName != null && cachedName.isNotEmpty) {
+      AppConstants.appName = cachedName;
+    }
+  } else {
+    // Environment switched between dev and prod: clear old cached branding
+    await prefs.remove('businessName');
+    await prefs.setBool('cachedUseProd', AppConstants.useProd);
+    AppConstants.appName = AppConstants.useProd ? 'Breaking Bread' : 'Test Bakery';
   }
 
   businessProvider.addListener(() {
@@ -129,6 +136,7 @@ Future<void> main() async {
       if (b.businessName.isNotEmpty) {
         SharedPreferences.getInstance().then((p) {
           p.setString('businessName', b.businessName);
+          p.setBool('cachedUseProd', AppConstants.useProd);
         });
       }
       // Re-download the logo whenever the business resolves with a new

@@ -82,6 +82,7 @@ class OrderRepository {
       final body = {
         'businessId': businessId,
         'items': items,
+        'products': items,
         'ticketName': ticketName,
         'deliveryLocation': deliveryLocation,
         'deliveryTime': deliveryTime ?? _defaultDeliveryTime(now),
@@ -94,6 +95,12 @@ class OrderRepository {
       if (data is! Map<String, dynamic>) {
         return ApiResult.failure(const ApiFailure(
           message: 'We couldn\'t place your order. Please try again.',
+        ));
+      }
+      if (data['success'] == false || data['status'] == 'fail' || data['status'] == 'error') {
+        final msg = (data['message'] ?? data['error'])?.toString().trim();
+        return ApiResult.failure(ApiFailure(
+          message: (msg != null && msg.isNotEmpty) ? msg : 'Failed to place order.',
         ));
       }
       return ApiResult.success(data);

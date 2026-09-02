@@ -10,6 +10,8 @@ class Customer {
   final String email;
   final String role;
   final int loyaltyPoints;
+  final String? image;
+  final String? address;
 
   const Customer({
     required this.id,
@@ -18,6 +20,8 @@ class Customer {
     required this.email,
     required this.role,
     required this.loyaltyPoints,
+    this.image,
+    this.address,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
@@ -27,6 +31,8 @@ class Customer {
         email: (json['email'] ?? '') as String,
         role: (json['role'] ?? '') as String,
         loyaltyPoints: (json['loyaltyPoints'] as num?)?.toInt() ?? 0,
+        image: json['image'] as String?,
+        address: json['address'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -36,6 +42,8 @@ class Customer {
         'email': email,
         'role': role,
         'loyaltyPoints': loyaltyPoints,
+        if (image != null) 'image': image,
+        if (address != null) 'address': address,
       };
 
   Customer copyWith({
@@ -45,6 +53,8 @@ class Customer {
     String? email,
     String? role,
     int? loyaltyPoints,
+    String? image,
+    String? address,
   }) =>
       Customer(
         id: id ?? this.id,
@@ -53,5 +63,7 @@ class Customer {
         email: email ?? this.email,
         role: role ?? this.role,
         loyaltyPoints: loyaltyPoints ?? this.loyaltyPoints,
+        image: image ?? this.image,
+        address: address ?? this.address,
       );
 }

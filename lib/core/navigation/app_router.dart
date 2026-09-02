@@ -19,6 +19,7 @@ import '../../features/orders/presentation/pages/recent_orders_screen.dart';
 import '../../features/favourites/presentation/pages/favourites_screen.dart';
 import '../../features/profile/presentation/pages/add_new_address_screen.dart';
 import '../../features/profile/presentation/pages/change_password_screen.dart';
+import '../../features/profile/presentation/pages/edit_profile_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/saved_addresses_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
@@ -75,6 +76,7 @@ GoRouter createRouter(AuthProvider authProvider) {
           '/profile/orders',
           '/profile/addresses',
           '/profile/settings/change-password',
+          '/profile/edit',
           '/cart/checkout',
         ];
         for (final prefix in protectedPrefixes) {
@@ -215,6 +217,10 @@ GoRouter createRouter(AuthProvider authProvider) {
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => const EditProfileScreen(),
+                  ),
                   GoRoute(
                     path: 'addresses',
                     builder: (context, state) => const SavedAddressesScreen(),

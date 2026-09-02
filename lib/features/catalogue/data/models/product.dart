@@ -255,17 +255,20 @@ class ProductAddon {
   final String id;
   final String name;
   final double price;
+  final int? maxAvailable;
 
   const ProductAddon({
     required this.id,
     required this.name,
     required this.price,
+    this.maxAvailable,
   });
 
   factory ProductAddon.fromApi(ApiProductAddon api) => ProductAddon(
         id: api.id,
         name: api.name ?? 'Addon',
         price: (api.price ?? 0).toDouble(),
+        maxAvailable: api.maxAvailable?.toInt(),
       );
 }
 

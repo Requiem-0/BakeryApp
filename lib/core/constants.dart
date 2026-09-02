@@ -8,7 +8,7 @@
 /// app so we don't need them to be reactive mid-session — bootstrap
 /// timing is enough.
 abstract final class AppConstants {
-  static String appName = 'Breaking Bread';
+  static String appName = useProd ? 'Breaking Bread' : 'Test Bakery';
   static String currency = 'Rs';
 
 
@@ -18,7 +18,7 @@ abstract final class AppConstants {
 
   /// `true` for prod builds, `false` for dev. Touches [apiBaseUrl],
   /// [imageHostUrl], and [bakeryBusinessId] in one shot.
-  static const bool useProd = true;
+  static const bool useProd = false;
 
   /// Beta business to test stuff for the app. Currently pointed at
   /// "abababa" — a POS-populated test bakery that carries an active VAT

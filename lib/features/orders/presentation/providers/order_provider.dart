@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants.dart';
 import '../../../catalogue/data/models/product.dart';
 import '../../data/models/order.dart';
 import '../../data/repositories/order_repository.dart';
@@ -76,7 +77,16 @@ class OrderProvider extends ChangeNotifier {
 
       // Drop ghost tickets whose product references were not populated
       // (all items fell back to the generic "Item" name with zero total).
-      _orders = enriched.where((o) => o.isValid).toList();
+      final validOrders = enriched.where((o) => o.isValid).toList();
+
+      // Filter by active bakery business id to isolate store data on multi-tenant POS
+      const activeBizId = AppConstants.bakeryBusinessId;
+      _orders = validOrders.where((o) {
+        if (o.businessId.isNotEmpty && activeBizId.isNotEmpty) {
+          return o.businessId == activeBizId;
+        }
+        return true;
+      }).toList();
 
       // Sort: place newest orders at the top (null dates fall back to the end)
       _orders.sort((a, b) {

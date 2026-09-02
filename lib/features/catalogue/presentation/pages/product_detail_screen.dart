@@ -9,6 +9,7 @@ import '../../../businesses/presentation/widgets/tax_policy_sheet.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../favourites/presentation/providers/favourites_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../cart/presentation/widgets/product_bottom_cta.dart';
 import '../providers/catalogue_provider.dart';
 import '../widgets/grid_product_card.dart';
@@ -812,11 +813,23 @@ class _AddonRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isOn = quantity > 0;
+    final max = addon.maxAvailable;
+    final canIncrement = max == null || max <= 0 || quantity < max;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () => onChanged(isOn ? 0 : 1),
+        onTap: () {
+          if (isOn) {
+            onChanged(0);
+          } else {
+            if (max != null && max > 0 && max < 1) {
+              AppToast.info(context, '${addon.name} is currently unavailable');
+              return;
+            }
+            onChanged(1);
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -850,15 +863,43 @@ class _AddonRow extends StatelessWidget {
                     : null,
               ),
               const SizedBox(width: 12),
-              // Name + price
+              // Name + price + max limit badge
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(addon.name,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        )),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            addon.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (max != null && max > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Max $max',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
                     Text('+${AppConstants.formatPrice(addon.price)}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
@@ -868,27 +909,39 @@ class _AddonRow extends StatelessWidget {
               ),
               // Qty stepper — only shown once the addon is toggled on
               if (isOn)
-                Row(
-                  children: [
-                    _AddonStepperButton(
-                      icon: Icons.remove_rounded,
-                      onTap: () => onChanged(quantity - 1),
-                    ),
-                    SizedBox(
-                      width: 28,
-                      child: Text(
-                        '$quantity',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {}, // Absorb taps inside stepper area
+                  child: Row(
+                    children: [
+                      _AddonStepperButton(
+                        icon: Icons.remove_rounded,
+                        onTap: () => onChanged(quantity - 1),
+                      ),
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '$quantity',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    _AddonStepperButton(
-                      icon: Icons.add_rounded,
-                      onTap: () => onChanged(quantity + 1),
-                    ),
-                  ],
+                      _AddonStepperButton(
+                        icon: Icons.add_rounded,
+                        disabled: !canIncrement,
+                        onTap: () {
+                          if (!canIncrement) {
+                            AppToast.info(context,
+                                'Maximum limit for ${addon.name} is $max per item');
+                            return; // Keep at max quantity, do not reset!
+                          }
+                          onChanged(quantity + 1);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -901,20 +954,27 @@ class _AddonRow extends StatelessWidget {
 class _AddonStepperButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool disabled;
 
-  const _AddonStepperButton({required this.icon, required this.onTap});
+  const _AddonStepperButton({
+    required this.icon,
+    required this.onTap,
+    this.disabled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap, // Always handle onTap to absorb the touch event
       behavior: HitTestBehavior.opaque,
       child: Container(
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: colors.primary,
+          color: disabled
+              ? colors.primary.withValues(alpha: 0.35)
+              : colors.primary,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,

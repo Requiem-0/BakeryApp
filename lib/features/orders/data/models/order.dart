@@ -115,7 +115,7 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     // Items can arrive as { product: {...}, quantity, price, selectedVariants }
-    // or as flat { name, image, qty, price }.
+    // or as flat { productName/name, image, quantity/qty, unitPrice/price }.
     final productNode = json['product'];
     final String name;
     final String image;
@@ -123,28 +123,28 @@ class OrderItem {
 
     if (productNode is Map<String, dynamic>) {
       prodId = (productNode['_id'] ?? productNode['id'])?.toString();
-      name = (productNode['name'] ?? productNode['productName'] ?? 'Item')
+      name = (productNode['name'] ?? productNode['productName'] ?? json['productName'] ?? json['name'] ?? 'Item')
           .toString();
       final rawImg =
-          productNode['image'] ?? productNode['imageUrl'] ?? '';
+          productNode['image'] ?? productNode['imageUrl'] ?? json['image'] ?? json['imageUrl'] ?? '';
       image = AppConstants.resolveImageUrl(rawImg.toString()) ??
           rawImg.toString();
     } else {
       if (productNode != null) {
         prodId = productNode.toString();
       } else {
-        prodId = (json['productId'] ?? json['product'])?.toString();
+        prodId = (json['productId'] ?? json['product'] ?? json['id'] ?? json['_id'])?.toString();
       }
       name =
-          (json['name'] ?? json['productName'] ?? 'Item').toString();
+          (json['productName'] ?? json['name'] ?? 'Item').toString();
       final rawImg = json['image'] ?? json['imageUrl'] ?? json['productImage'] ?? '';
       image = AppConstants.resolveImageUrl(rawImg.toString()) ??
           rawImg.toString();
     }
 
-    final qty = (json['quantity'] ?? json['qty'] ?? 1) as int? ?? 1;
+    final qty = ((json['quantity'] ?? json['qty'] ?? 1) as num).toInt();
     final price =
-        (json['price'] ?? json['unitPrice'] ?? 0).toDouble();
+        ((json['price'] ?? json['unitPrice'] ?? json['preTaxPrice'] ?? 0) as num).toDouble();
 
     Map<String, String> variants = const {};
     final rawVariants = json['selectedVariants'];
@@ -224,6 +224,8 @@ class OrderItem {
 /// A completed / past order record fetched from the API.
 class Order {
   final String id;
+  final String rawId;
+  final String businessId;
 
   /// Human-readable date string (e.g. "Today, 10:32 AM" or "Feb 21, 2024").
   final String date;
@@ -267,6 +269,8 @@ class Order {
 
   const Order({
     required this.id,
+    this.rawId = '',
+    this.businessId = '',
     required this.date,
     required this.items,
     required this.total,
@@ -281,8 +285,15 @@ class Order {
     this.tax = 0,
   });
 
-  Order copyWith({List<OrderItem>? items, double? total}) => Order(
+  Order copyWith({
+    List<OrderItem>? items,
+    double? total,
+    String? businessId,
+  }) =>
+      Order(
         id: id,
+        rawId: rawId,
+        businessId: businessId ?? this.businessId,
         date: date,
         createdAt: createdAt,
         items: items ?? this.items,
@@ -317,18 +328,23 @@ class Order {
   }
 
   /// Parse a single order object from the API response.
-  /// Handles both `_id` (Mongoose) and `id` keys defensively.
+  /// Handles fallback ID resolution across `_id`, `orderId`, and `id`.
   factory Order.fromJson(Map<String, dynamic> json) {
-    final id = (json['_id'] ?? json['id'] ?? '').toString();
+    final rawId = (json['_id'] ?? json['orderId'] ?? json['id'] ?? '').toString();
+
+    // Multi-tenant businessId extraction:
+    // Check order.businessId ?? order.business?._id ?? order.storeId
+    String businessId = '';
+    final rawBiz = json['businessId'] ?? json['business'] ?? json['storeId'];
+    if (rawBiz is Map) {
+      businessId = (rawBiz['_id'] ?? rawBiz['id'] ?? '').toString();
+    } else if (rawBiz != null) {
+      businessId = rawBiz.toString();
+    }
 
     DateTime? createdAt;
     final rawDate = json['createdAt'] ?? json['date'];
     if (rawDate != null) {
-      // Backend stores UTC. The string usually carries a 'Z', but
-      // we've been burned before — when it doesn't, tryParse falls
-      // back to "local" and our .toLocal() becomes a no-op (so the
-      // user sees a UTC timestamp on their Nepal clock, off by
-      // 5h45m). Coerce to UTC when no tz was seen, then convert.
       var parsed = DateTime.tryParse(rawDate.toString());
       if (parsed != null) {
         if (!parsed.isUtc) {
@@ -351,25 +367,54 @@ class Order {
         ? _formatDate(createdAt)
         : (rawDate?.toString() ?? '');
 
-    final rawItems = json['items'];
+    // Item Shape Normalization:
+    // 1. GET /api/ticket/my-orders: ticket.items[].item[] (Array of objects each containing an item array)
+    // 2. GET /api/ticket/{order_id}: ticket.items.item[] (Single object with an item array)
+    // 3. POST /api/ticket: response.ticketProducts.item[] / products
     final items = <OrderItem>[];
-    if (rawItems is List) {
-      for (final wrapper in rawItems) {
-        if (wrapper is Map<String, dynamic>) {
-          // /api/ticket/my-orders nests items inside items[].item[]
-          final nested = wrapper['item'];
-          if (nested is List && nested.isNotEmpty) {
-            for (final innerItem in nested) {
-              if (innerItem is Map<String, dynamic>) {
-                items.add(OrderItem.fromJson(innerItem));
+
+    void parseItemEntry(dynamic entry) {
+      if (entry is Map<String, dynamic>) {
+        items.add(OrderItem.fromJson(entry));
+      } else if (entry is Map) {
+        items.add(OrderItem.fromJson(Map<String, dynamic>.from(entry)));
+      }
+    }
+
+    void extractFromItemContainer(dynamic container) {
+      if (container == null) return;
+      if (container is List) {
+        for (final wrapper in container) {
+          if (wrapper is Map) {
+            final nested = wrapper['item'] ?? wrapper['items'] ?? wrapper['products'];
+            if (nested is List && nested.isNotEmpty) {
+              for (final inner in nested) {
+                parseItemEntry(inner);
               }
+            } else {
+              parseItemEntry(wrapper);
             }
-          } else {
-            // Flat structure used by /api/ticket/ or other endpoints
-            items.add(OrderItem.fromJson(wrapper));
           }
         }
+      } else if (container is Map) {
+        final nested = container['item'] ?? container['items'] ?? container['products'];
+        if (nested is List && nested.isNotEmpty) {
+          for (final inner in nested) {
+            parseItemEntry(inner);
+          }
+        } else {
+          parseItemEntry(container);
+        }
       }
+    }
+
+    final rawItems = json['items'];
+    final rawProducts = json['ticketProducts'] ?? json['products'];
+    if (rawItems != null) {
+      extractFromItemContainer(rawItems);
+    }
+    if (items.isEmpty && rawProducts != null) {
+      extractFromItemContainer(rawProducts);
     }
 
     // /ticket endpoints disagree on which key carries the order total.
@@ -426,8 +471,14 @@ class Order {
     final taxTotal =
         items.fold<double>(0, (sum, it) => sum + it.taxAmount * it.qty);
 
+    final displayId = rawId.isEmpty
+        ? ''
+        : '#${rawId.length > 6 ? rawId.substring(rawId.length - 6).toUpperCase() : rawId.toUpperCase()}';
+
     return Order(
-      id: '#${id.length > 6 ? id.substring(id.length - 6).toUpperCase() : id.toUpperCase()}',
+      id: displayId,
+      rawId: rawId,
+      businessId: businessId,
       date: date,
       createdAt: createdAt,
       items: items,

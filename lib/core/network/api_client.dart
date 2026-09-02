@@ -31,7 +31,10 @@ class ApiClient {
               sendTimeout: _timeout,
               contentType: 'application/json',
               responseType: ResponseType.json,
-              headers: {'app': 'customer'},
+              headers: {
+                'app': 'user',
+                'Accept': 'application/json',
+              },
             )),
         _tokenStorage = tokenStorage ?? TokenStorage() {
     _dio.interceptors.add(

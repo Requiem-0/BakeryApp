@@ -98,15 +98,67 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _confirmDeactivateAccount(BuildContext context) async {
+    final theme = Theme.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Deactivate account?'),
+        content: const Text(
+          'Your account will be deactivated and you will be signed out. '
+          'You can reactivate your account at any time by simply logging in again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(100, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(100, 44),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.deactivate();
+    if (!context.mounted) return;
+    if (ok) {
+      AppToast.info(context, 'Account deactivated. You can log in anytime to reactivate.');
+      context.go('/home');
+    } else {
+      AppToast.error(
+          context, auth.errorMessage ?? 'Could not deactivate account');
+    }
+  }
+
   Future<void> _confirmDeleteAccount(BuildContext context) async {
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete account?'),
+        title: const Text('Permanently delete account?'),
         content: const Text(
-          'Your account will be permanently disabled and you will be '
-          'signed out. This cannot be undone.',
+          'This action is PERMANENT. Your profile, order history, and saved addresses will be deleted forever. '
+          'You will NOT be able to recover this account.',
         ),
         actions: [
           TextButton(
@@ -131,7 +183,7 @@ class SettingsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Delete'),
+            child: const Text('Delete Forever'),
           ),
         ],
       ),
@@ -139,10 +191,10 @@ class SettingsScreen extends StatelessWidget {
     if (confirmed != true || !context.mounted) return;
 
     final auth = context.read<AuthProvider>();
-    final ok = await auth.deactivate();
+    final ok = await auth.deleteAccount();
     if (!context.mounted) return;
     if (ok) {
-      AppToast.error(context, 'Account deleted.');
+      AppToast.error(context, 'Account permanently deleted.');
       context.go('/home');
     } else {
       AppToast.error(
@@ -189,7 +241,7 @@ class SettingsScreen extends StatelessWidget {
                       showDivider: false,
                     ),
                   ]),
-                  // Authenticated users see account management (password, delete).
+                  // Authenticated users see account management (password, deactivate, delete).
                   // Guests see "Reactivate Account" to restore a deactivated
                   // profile.
                   if (auth.isAuthenticated) ...[
@@ -207,9 +259,16 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       _buildLinkRow(
                         context,
-                        Icons.person_off_outlined,
+                        Icons.pause_circle_outline_rounded,
+                        'Deactivate Account',
+                        'Temporarily disable account',
+                        onTap: () => _confirmDeactivateAccount(context),
+                      ),
+                      _buildLinkRow(
+                        context,
+                        Icons.delete_forever_outlined,
                         'Delete Account',
-                        null,
+                        'Permanently purge account',
                         destructive: true,
                         showDivider: false,
                         onTap: () => _confirmDeleteAccount(context),

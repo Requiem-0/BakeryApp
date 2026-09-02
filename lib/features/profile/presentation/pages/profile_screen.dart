@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/brandkit/app_theme.dart';
 
@@ -26,6 +27,7 @@ class ProfileScreen extends StatelessWidget {
     final name = user?.name ?? 'Guest';
     final email = user?.email ?? '';
     final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final avatarImage = user?.image;
 
     // Active orders only matter when we have a logged-in user; for guests
     // the OrderProvider is empty anyway, but skipping the read keeps the
@@ -51,10 +53,7 @@ class ProfileScreen extends StatelessWidget {
           Text('My Profile', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 20),
 
-          // Profile card — read-only display of the signed-in identity.
-          // No edit screen: the backend's PATCH /auth/me only accepts a
-          // tiny subset of fields and we chose not to ship a partial
-          // edit UI.
+          // Profile card — displays signed-in identity with Edit CTA
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -79,19 +78,46 @@ class ProfileScreen extends StatelessWidget {
                   width: 68,
                   height: 68,
                   decoration: BoxDecoration(
+                    shape: BoxShape.circle,
                     gradient: Theme.of(context)
                         .extension<AppThemeExtension>()
                         ?.primaryGradient,
-                    borderRadius: BorderRadius.circular(22),
                   ),
-                  alignment: Alignment.center,
-                  child: Text(initials,
-                      style: Theme.of(context)
-                          .textTheme
-                          .displayLarge
-                          ?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontSize: 28)),
+                  clipBehavior: Clip.antiAlias,
+                  child: (avatarImage != null && avatarImage.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: avatarImage,
+                          fit: BoxFit.cover,
+                          placeholder: (ctx, url) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          errorWidget: (ctx, url, err) => Center(
+                            child: Text(
+                              initials,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .displayLarge
+                                  ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary,
+                                      fontSize: 28),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            initials,
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayLarge
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimary,
+                                    fontSize: 28),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -110,6 +136,15 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (isAuth)
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
+                    onPressed: () => context.push('/profile/edit'),
+                  ),
               ],
             ),
           ),
@@ -136,6 +171,12 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const _SectionHeader(label: 'ACCOUNT'),
           const SizedBox(height: 8),
+          if (isAuth)
+            _MenuTile(
+                icon: Icons.person_outline_rounded,
+                label: 'Edit Profile',
+                sub: 'Name, phone & photo',
+                onTap: () => context.push('/profile/edit')),
           _MenuTile(
               icon: Icons.location_on_rounded,
               label: 'Saved Addresses',

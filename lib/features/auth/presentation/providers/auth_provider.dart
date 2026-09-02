@@ -144,12 +144,53 @@ class AuthProvider extends ChangeNotifier {
             newPassword: newPassword,
           ));
 
+  Future<bool> updateProfile({
+    String? name,
+    String? phone,
+    String? address,
+    String? imagePath,
+    List<int>? imageBytes,
+    String? imageFilename,
+  }) =>
+      _run(() async {
+        final result = await _repo.updateProfile(
+          name: name,
+          phone: phone,
+          address: address,
+          imagePath: imagePath,
+          imageBytes: imageBytes,
+          imageFilename: imageFilename,
+        );
+        if (result.isFailure) {
+          _errorMessage = result.failure?.message ?? 'Failed to update profile.';
+          return false;
+        }
+        final me = await _repo.getMe();
+        if (me.isSuccess && me.data != null) {
+          _user = me.data;
+          notifyListeners();
+        }
+        return true;
+      });
 
   Future<bool> deactivate() => _run(() async {
         final result = await _repo.deactivate();
         if (result.isFailure) {
           _errorMessage =
               result.failure?.message ?? 'Account deactivation failed.';
+          return false;
+        }
+        await _tokenStorage.clear();
+        _user = null;
+        _setStatus(AuthStatus.unauthenticated);
+        return true;
+      });
+
+  Future<bool> deleteAccount() => _run(() async {
+        final result = await _repo.deleteAccount();
+        if (result.isFailure) {
+          _errorMessage =
+              result.failure?.message ?? 'Account deletion failed.';
           return false;
         }
         await _tokenStorage.clear();

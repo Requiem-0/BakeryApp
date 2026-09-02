@@ -6,7 +6,7 @@ publish_to: 'none'
 # Bump the build number on EVERY upload to Play Store — duplicates
 # are rejected. The semver is what shows in the store listing; the
 # build number is what the Play Console keys releases off.
-version: 1.0.0+3
+version: 1.0.0+5
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -28,13 +28,14 @@ dependencies:
   path_provider: ^2.1.5
   firebase_core: ^4.10.0
   firebase_crashlytics: ^5.2.3
+  flutter_native_splash: ^2.4.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.1
-  flutter_native_splash: ^2.4.0
 
 flutter:
   uses-material-design: true
