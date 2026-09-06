@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/brandkit/app_theme.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -113,7 +114,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final ok = await auth.updateProfile(
       name: _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
+      phone: Validators.normalizePhone(_phoneCtrl.text.trim()),
       address: _addressCtrl.text.trim(),
       imagePath: !kIsWeb ? _selectedImage?.path : null,
       imageBytes: _selectedImageBytes,
@@ -294,17 +295,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       _ProfileTextField(
                         label: 'PHONE NUMBER',
                         controller: _phoneCtrl,
-                        hint: 'Your contact number',
+                        hint: '98XXXXXXXX or 97XXXXXXXX',
                         keyboardType: TextInputType.phone,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Please enter your phone number';
-                          }
-                          if (v.trim().length < 7) {
-                            return 'Enter a valid phone number';
-                          }
-                          return null;
-                        },
+                        validator: (v) => Validators.validateNepalPhone(v),
                       ),
                       const SizedBox(height: 18),
                       _ProfileTextField(

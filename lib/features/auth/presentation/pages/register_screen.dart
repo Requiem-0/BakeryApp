@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/brandkit/app_colors.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -43,7 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     
     final ok = await authProvider.register(
       name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
+      phone: Validators.normalizePhone(_phoneController.text.trim()),
       email: email,
       password: _passwordController.text,
       confirmPassword: _confirmPasswordController.text,
@@ -198,15 +199,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         keyboardType: TextInputType.phone,
                         style: theme.textTheme.bodyMedium,
                         decoration: InputDecoration(
-                          hintText: '+1 (555) 000-0000',
+                          hintText: '98XXXXXXXX or 97XXXXXXXX',
                           prefixIcon: Icon(Icons.phone_outlined, color: iconColor),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your phone number';
-                          }
-                          return null;
-                        },
+                        validator: (value) => Validators.validateNepalPhone(value),
                       ),
                       
                       const SizedBox(height: 18),

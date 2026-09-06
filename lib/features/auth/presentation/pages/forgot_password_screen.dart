@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/brandkit/app_colors.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -34,7 +35,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final isEmail = target.contains('@');
     final ok = await authProvider.sendResetToken(
       email: isEmail ? target : null,
-      phone: !isEmail ? target : null,
+      phone: !isEmail ? Validators.normalizePhone(target) : null,
     );
 
     if (mounted) {
@@ -115,10 +116,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
+                          final trimmed = value?.trim() ?? '';
+                          if (trimmed.isEmpty) {
                             return 'Please enter your email or phone number';
                           }
-                          return null;
+                          if (!trimmed.contains('@')) {
+                            return Validators.validateNepalPhone(trimmed);
+                          } else {
+                            return Validators.validateEmail(trimmed);
+                          }
                         },
                       ),
                       

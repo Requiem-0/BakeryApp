@@ -4,12 +4,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/brandkit/theme_provider.dart';
+import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/service_icon.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/profile_shared_widgets.dart';
-import '../../../../core/utils/responsive.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -77,16 +78,17 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     if (ok != true || !context.mounted) return;
-    final email = emailController.text.trim();
+    final rawInput = emailController.text.trim();
     final password = passwordController.text.trim();
-    if (email.isEmpty || password.isEmpty) {
+    if (rawInput.isEmpty || password.isEmpty) {
       if (!context.mounted) return;
       AppToast.error(context, 'Please fill in both fields.');
       return;
     }
+    final emailOrPhone = rawInput.contains('@') ? rawInput : Validators.normalizePhone(rawInput);
     final auth = context.read<AuthProvider>();
     final success = await auth.reactivate(
-      emailOrPhone: email,
+      emailOrPhone: emailOrPhone,
       password: password,
     );
     if (!context.mounted) return;

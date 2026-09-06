@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/brandkit/app_colors.dart';
 import '../../../../core/constants.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -33,7 +34,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
-    final emailOrPhone = _emailOrPhoneController.text.trim();
+    final rawInput = _emailOrPhoneController.text.trim();
+    final emailOrPhone = rawInput.contains('@') ? rawInput : Validators.normalizePhone(rawInput);
     final password = _passwordController.text;
 
     final ok = await authProvider.login(

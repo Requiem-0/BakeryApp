@@ -7,8 +7,9 @@ import '../../../../shared/widgets/app_toast.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../address/data/location_service.dart';
 import '../../../address/presentation/providers/address_provider.dart';
-import '../widgets/profile_shared_widgets.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/validators.dart';
+import '../widgets/profile_shared_widgets.dart';
 
 class AddNewAddressScreen extends StatefulWidget {
   const AddNewAddressScreen({super.key});
@@ -78,11 +79,20 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
       return;
     }
 
+    final rawPhone = _phoneCtrl.text.trim();
+    if (rawPhone.isNotEmpty) {
+      final phoneError = Validators.validateNepalPhone(rawPhone, isRequired: true);
+      if (phoneError != null) {
+        AppToast.error(context, phoneError);
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     final prov = context.read<AddressProvider>();
     final ok = await prov.addAddress(
       name: _labelCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
+      phone: Validators.normalizePhone(rawPhone),
       address: addrStr,
       landmark: landmark,
       latitude: _pinned?.latitude ?? 0,
@@ -130,7 +140,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                     const SizedBox(height: 14),
                     const FieldLabel('PHONE'),
                     _field(_phoneCtrl,
-                        hint: 'Phone', type: TextInputType.phone),
+                        hint: '98XXXXXXXX or 97XXXXXXXX', type: TextInputType.phone),
                     const SizedBox(height: 14),
                     const FieldLabel('STREET ADDRESS'),
                     _field(_streetCtrl, hint: 'Street address'),
