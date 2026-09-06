@@ -47,7 +47,8 @@ class CartRepository {
           {
             'adminId': adminId,
             'product': productId,
-            if (variantItemId != null) 'variantItem': variantItemId,
+            if (variantItemId != null && variantItemId.isNotEmpty)
+              'variantItem': variantItemId,
             'quantity': quantity,
             'addons': addons.entries
                 .map((e) => {'addon': e.key, 'quantity': e.value})

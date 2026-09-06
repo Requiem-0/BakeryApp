@@ -18,7 +18,7 @@ abstract final class AppConstants {
 
   /// `true` for prod builds, `false` for dev. Touches [apiBaseUrl],
   /// [imageHostUrl], and [bakeryBusinessId] in one shot.
-  static const bool useProd = false;
+  static const bool useProd = true;
 
   /// Beta business to test stuff for the app. Currently pointed at
   /// "abababa" — a POS-populated test bakery that carries an active VAT

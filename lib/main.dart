@@ -125,6 +125,21 @@ Future<void> main() async {
     AppConstants.appName = AppConstants.useProd ? 'Breaking Bread' : 'Test Bakery';
   }
 
+  catalogueProvider.addListener(() {
+    if (catalogueProvider.products.isNotEmpty) {
+      for (final p in catalogueProvider.products) {
+        if (p.businessName != null && p.businessName!.trim().isNotEmpty) {
+          AppConstants.applyBranding(appName: p.businessName!.trim());
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.setString('businessName', p.businessName!.trim());
+            prefs.setBool('cachedUseProd', AppConstants.useProd);
+          });
+          break;
+        }
+      }
+    }
+  });
+
   businessProvider.addListener(() {
     final b = businessProvider.current;
     if (b != null) {

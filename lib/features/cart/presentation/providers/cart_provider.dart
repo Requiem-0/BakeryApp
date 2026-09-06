@@ -187,6 +187,9 @@ class CartProvider extends ChangeNotifier {
   bool contains(Product product) =>
       _items.any((i) => i.product.id == product.id);
 
+  static String? _normVariant(String? id) =>
+      (id != null && id.isNotEmpty) ? id : null;
+
   /// Quantity in cart for a specific (product, variant, addons) tuple.
   /// Returns 0 when no line matches.
   ///
@@ -201,16 +204,18 @@ class CartProvider extends ChangeNotifier {
     String? variantItemId,
     Map<String, int>? addons,
   }) {
+    final targetVar = _normVariant(variantItemId);
     if (addons == null) {
       return _items
           .where((i) =>
-              i.product.id == productId && i.variantItemId == variantItemId)
+              i.product.id == productId &&
+              _normVariant(i.variantItemId) == targetVar)
           .fold(0, (sum, i) => sum + i.quantity);
     }
     final idx = _items.indexWhere(
       (i) =>
           i.product.id == productId &&
-          i.variantItemId == variantItemId &&
+          _normVariant(i.variantItemId) == targetVar &&
           _addonsMatch(i.addons, addons),
     );
     return idx >= 0 ? _items[idx].quantity : 0;
@@ -225,10 +230,11 @@ class CartProvider extends ChangeNotifier {
     String? variantItemId,
     Map<String, int>? addons,
   }) async {
+    final targetVar = _normVariant(variantItemId);
     final idx = _items.indexWhere(
       (i) =>
           i.product.id == productId &&
-          i.variantItemId == variantItemId &&
+          _normVariant(i.variantItemId) == targetVar &&
           (addons == null || _addonsMatch(i.addons, addons)),
     );
     if (idx < 0) return false;
@@ -422,6 +428,7 @@ class CartProvider extends ChangeNotifier {
     Map<String, String> selectedVariants = const {},
   }) async {
     final effectiveVariant = variant ?? _defaultVariantFor(product);
+    final effectiveVarId = _normVariant(effectiveVariant?.id);
     final effectiveAddons = _buildLocalAddons(product, addons);
 
 
@@ -432,7 +439,7 @@ class CartProvider extends ChangeNotifier {
     final snapshot = _snapshot();
     final existingIdx = _items.indexWhere((i) =>
         i.product.id == product.id &&
-        i.variantItemId == effectiveVariant?.id &&
+        _normVariant(i.variantItemId) == effectiveVarId &&
         _addonsMatch(i.addons, addons));
 
     if (existingIdx >= 0) {
@@ -467,7 +474,7 @@ class CartProvider extends ChangeNotifier {
       _items.add(CartItem(
         product: product,
         quantity: quantity,
-        variantItemId: effectiveVariant?.id,
+        variantItemId: effectiveVarId,
         variantItemLabel: effectiveVariant?.label,
         unitPrice: unitPrice,
         addons: finalAddons,
