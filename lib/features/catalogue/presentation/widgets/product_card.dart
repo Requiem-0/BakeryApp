@@ -34,6 +34,12 @@ class ProductCard extends StatelessWidget {
   /// here so +/− target the specific [CartItem] index.
   final Widget? trailingCounter;
 
+  /// Wrap the product image in a [Hero] for the card → detail-screen
+  /// animation. Default on — turn off wherever the same product id
+  /// might render twice on the same route (cart lines are the current
+  /// offender) since Flutter crashes on duplicate hero tags.
+  final bool enableHero;
+
   const ProductCard({
     super.key,
     required this.product,
@@ -43,6 +49,7 @@ class ProductCard extends StatelessWidget {
     required this.onToggleFavourite,
     this.priceOverride,
     this.trailingCounter,
+    this.enableHero = true,
   });
 
   @override
@@ -74,13 +81,27 @@ class ProductCard extends StatelessWidget {
                   // discount badge that used to sit here is gone —
                   // the strikethrough original price in the price row
                   // below carries the same signal more cleanly.
-                  ProductImageBox(
-                    imageUrl: product.imageUrl,
-                    emojiFallback: product.image,
-                    emojiFontSize: 40,
-                    width: 90,
-                    height: 90,
-                  ),
+                  // Hero → detail-screen image, opt-outable for cart
+                  // lines where duplicate product ids would crash.
+                  if (enableHero)
+                    Hero(
+                      tag: 'product-image-${product.id}',
+                      child: ProductImageBox(
+                        imageUrl: product.imageUrl,
+                        emojiFallback: product.image,
+                        emojiFontSize: 40,
+                        width: 90,
+                        height: 90,
+                      ),
+                    )
+                  else
+                    ProductImageBox(
+                      imageUrl: product.imageUrl,
+                      emojiFallback: product.image,
+                      emojiFontSize: 40,
+                      width: 90,
+                      height: 90,
+                    ),
                   const SizedBox(width: 16),
                   // Text column
                   Expanded(

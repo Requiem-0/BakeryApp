@@ -16,6 +16,13 @@ class GridProductCard extends StatelessWidget {
   final bool isFavourite;
   final VoidCallback onToggleFavourite;
 
+  /// Wrap the product image in a [Hero] so it animates into the detail
+  /// screen's hero image on tap. Default on — turn off on surfaces
+  /// where the same product id might render twice on the same route
+  /// (e.g. cart lines with different variants), otherwise Flutter
+  /// crashes on the duplicate tag.
+  final bool enableHero;
+
   const GridProductCard({
     super.key,
     required this.product,
@@ -23,6 +30,7 @@ class GridProductCard extends StatelessWidget {
     required this.onQuickAdd,
     required this.isFavourite,
     required this.onToggleFavourite,
+    this.enableHero = true,
   });
 
   @override
@@ -53,13 +61,29 @@ class GridProductCard extends StatelessWidget {
             // cleanly.
             Stack(
               children: [
-                ProductImageBox(
-                  imageUrl: product.imageUrl,
-                  emojiFallback: product.image,
-                  emojiFontSize: 52,
-                  width: double.infinity,
-                  height: 100,
-                ),
+                // Hero animates the image into the detail screen's
+                // hero on push. flightShuttleBuilder falls back to the
+                // source (or nothing) when a duplicate tag surfaces
+                // during a race between routes — safer than crashing.
+                if (enableHero)
+                  Hero(
+                    tag: 'product-image-${product.id}',
+                    child: ProductImageBox(
+                      imageUrl: product.imageUrl,
+                      emojiFallback: product.image,
+                      emojiFontSize: 52,
+                      width: double.infinity,
+                      height: 100,
+                    ),
+                  )
+                else
+                  ProductImageBox(
+                    imageUrl: product.imageUrl,
+                    emojiFallback: product.image,
+                    emojiFontSize: 52,
+                    width: double.infinity,
+                    height: 100,
+                  ),
 
                 // Favourite button
                 Positioned(

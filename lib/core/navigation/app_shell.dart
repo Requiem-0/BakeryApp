@@ -29,6 +29,10 @@ class AppShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // extendBody lets body content flow BEHIND the floating pill
+      // instead of stopping above a reserved rectangular slot. That
+      // reserved slot was what read as "a container behind the pill".
+      extendBody: true,
       body: SafeArea(
         bottom: false,
         child: navigationShell,

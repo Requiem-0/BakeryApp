@@ -19,6 +19,7 @@ import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/ai_tip.dart';
 import '../../../../shared/widgets/section_header.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../core/navigation/nav_provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -345,12 +346,13 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 const SizedBox(height: 14),
 
-                // Loading / empty state
+                // Loading / empty state. Skeleton grid/list mirrors the
+                // real card shape so nothing jumps when data lands —
+                // reads as "content coming" instead of a lonely spinner.
                 if (isLoadingInitial)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 64),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
+                  _gridView
+                      ? const ProductGridSkeleton()
+                      : const ProductListSkeleton()
                 else if (filtered.isEmpty)
                   _EmptyState(
                     onClear: () => setState(() {

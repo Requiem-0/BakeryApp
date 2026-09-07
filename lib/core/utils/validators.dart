@@ -31,7 +31,7 @@ class Validators {
 
     final cleaned = trimmed.replaceAll(RegExp(r'[\s\-\(\)]'), '');
     if (!nepalPhoneRegex.hasMatch(cleaned)) {
-      return 'Enter a valid 10-digit mobile number (e.g., 98XXXXXXXX or 97XXXXXXXX)';
+      return 'Enter a 10-digit number starting with 98, 97, or 96';
     }
 
     return null;

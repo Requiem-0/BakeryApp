@@ -187,6 +187,11 @@ class CartScreen extends StatelessWidget {
                             children: [
                               ProductCard(
                                 product: item.product,
+                                // Two cart lines can share a product
+                                // id (different variants). Opt out of
+                                // Hero here so the duplicate-tag crash
+                                // doesn't fire.
+                                enableHero: false,
                                 // Per-unit cost INCLUDING addons, so the
                                 // line price matches what the customer
                                 // actually pays. unitPrice alone shows

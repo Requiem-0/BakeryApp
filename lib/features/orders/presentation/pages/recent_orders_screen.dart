@@ -10,6 +10,7 @@ import '../widgets/reorder_card.dart';
 import '../widgets/order_invoice_sheet.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import 'package:go_router/go_router.dart';
 import '../../presentation/providers/order_provider.dart';
 import '../../../../core/constants.dart';
@@ -85,7 +86,18 @@ class _RecentOrdersScreenState extends State<RecentOrdersScreen>
         title: const Text('Recent Orders'),
       ),
       body: isLoadingOrders
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              // Skeleton stack sitting under a scrollable so the layout
+              // slot stays the same as the loaded state — no jump when
+              // the first orders arrive.
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+              physics: const NeverScrollableScrollPhysics(),
+              children: const [
+                OrderCardSkeleton(),
+                OrderCardSkeleton(),
+                OrderCardSkeleton(),
+              ],
+            )
           : RefreshIndicator(
               onRefresh: () =>
                   context.read<OrderProvider>().fetchOrders(),

@@ -147,6 +147,10 @@ final class AppTheme {
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           hintStyle:
               AppTextStyles.bodyMedium.copyWith(color: AppColors.textLight),
+          // Two lines is enough headroom for our longest validator
+          // messages (phone / password rules) without any of them
+          // getting cut off with an ellipsis.
+          errorMaxLines: 2,
         ),
         dividerColor: AppColors.beige,
         dividerTheme: const DividerThemeData(
@@ -278,6 +282,7 @@ final class AppTheme {
           ),
           hintStyle: AppTextStyles.bodyMedium
               .copyWith(color: const Color(0xFF9A8B7D)),
+          errorMaxLines: 2,
         ),
         extensions: <ThemeExtension<dynamic>>[
           AppThemeExtension(

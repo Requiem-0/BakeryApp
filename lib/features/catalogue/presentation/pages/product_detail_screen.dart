@@ -163,7 +163,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: _HeroImage(product: widget.product),
+                  // Hero destination — matches the tag on every card's
+                  // image so the tap → detail push animates the
+                  // thumbnail out into this full-bleed image. Empty
+                  // tag would silently disable it, so the tag stays
+                  // in the string interpolation form the cards use.
+                  background: Hero(
+                    tag: 'product-image-${widget.product.id}',
+                    child: _HeroImage(product: widget.product),
+                  ),
                 ),
               ),
 
