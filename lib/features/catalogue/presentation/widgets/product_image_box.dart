@@ -35,15 +35,21 @@ class ProductImageBox extends StatelessWidget {
 
     final hasUrl = imageUrl != null && imageUrl!.isNotEmpty;
 
-    // The image is wrapped in SizedBox.expand so it fills whatever bounds
-    // the Container ends up with — this avoids passing `double.infinity`
-    // to the underlying RenderImage, which would trip a
-    // "size must be finite" assertion.
+    // Cap the decode size at ~3x the render dimensions. Product photos
+    // arrive at 1200-1800px from the CDN but the card only shows
+    // them at 90-200px, so decoding at source resolution burns
+    // memory and misses the "bitmap downsampling" recommendation
+    // in Play Console. `double.infinity` (rare — only when the parent
+    // hasn't laid us out yet) falls back to null so the image loads
+    // at its natural size instead of a bogus dimension.
+    int? capDecode(double dim) => dim.isFinite ? (dim * 3).round() : null;
     final imageChild = hasUrl
         ? SizedBox.expand(
             child: CachedNetworkImage(
               imageUrl: imageUrl!,
               fit: BoxFit.cover,
+              memCacheWidth: capDecode(width),
+              memCacheHeight: capDecode(height),
               fadeInDuration: const Duration(milliseconds: 120),
               placeholder: (_, __) => Center(child: fallback),
               errorWidget: (_, __, ___) => Center(child: fallback),

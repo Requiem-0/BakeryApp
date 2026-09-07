@@ -212,6 +212,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       ? CachedNetworkImage(
                                           imageUrl: networkImage,
                                           fit: BoxFit.cover,
+                                          // Avatar preview is ~120px circle at 3x.
+                                          memCacheWidth: 360,
+                                          memCacheHeight: 360,
                                           placeholder: (ctx, url) => const Center(
                                             child: CircularProgressIndicator(strokeWidth: 2),
                                           ),

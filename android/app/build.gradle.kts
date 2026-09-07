@@ -98,6 +98,19 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+
+            // R8 full-mode optimisation — trims unused code, obfuscates
+            // symbols, and drops unused resources. Meets the Play
+            // Console "improve app performance with R8" recommendation.
+            // Keep-rules live in `proguard-rules.pro`; without them
+            // Flutter's plugin registrar gets stripped and the release
+            // crashes at startup.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

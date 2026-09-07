@@ -88,6 +88,9 @@ class ProfileScreen extends StatelessWidget {
                       ? CachedNetworkImage(
                           imageUrl: avatarImage,
                           fit: BoxFit.cover,
+                          // Avatar is ~120px circle at 3x = 360.
+                          memCacheWidth: 360,
+                          memCacheHeight: 360,
                           placeholder: (ctx, url) => const Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),

@@ -32,15 +32,13 @@ import 'core/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hide the system status bar on Android so the app extends edge-to-edge
-  // at the top. On iOS, Apple expects the status bar visible for non-
-  // immersive apps, so we keep it. Keep the bottom system nav on both.
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: [SystemUiOverlay.bottom],
-    );
-  }
+  // Draw edge-to-edge on both platforms. `SystemUiMode.edgeToEdge`
+  // is the Android-15-safe replacement for the old `manual` +
+  // `overlays: [bottom]` pattern that Play Console flagged as
+  // "deprecated APIs for edge-to-edge". Status and nav bars stay
+  // visible but transparent; the app content draws behind them and
+  // SafeArea in the widget tree handles the padding.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
 
   // Wrapped in try/catch so dev machines that don't have a
@@ -342,12 +340,19 @@ class App extends StatelessWidget {
           final themeMode = context.watch<ThemeProvider>().mode;
           final isDark = themeMode == ThemeMode.dark;
 
+          // On Android 15+ (targetSdk 35+) statusBarColor and
+          // systemNavigationBarColor are ignored — the system always
+          // paints transparent bars in edgeToEdge mode. We only set
+          // icon brightness so the icons stay legible on both light
+          // and dark scaffold backgrounds. On iOS the brightness
+          // fields drive the notch icons.
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
             statusBarIconBrightness:
                 isDark ? Brightness.light : Brightness.dark,
             statusBarBrightness:
                 isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
           ));
 
           return MaterialApp.router(

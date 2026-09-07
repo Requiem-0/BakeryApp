@@ -16,6 +16,11 @@ class ItemImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmed = image.trim();
     if (trimmed.startsWith('http') || trimmed.contains('/') || trimmed.contains('\\')) {
+      // Decode the source at ~3x the render size so bitmaps are sharp
+      // on high-DPI screens without dragging a 2000-pixel product
+      // photo through memory just to display a 20-pixel thumb.
+      // Bumps the Play Store "bitmap downsampling" recommendation.
+      final decodeSize = (size * 3).round();
       return Container(
         width: size,
         height: size,
@@ -29,6 +34,8 @@ class ItemImage extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          memCacheWidth: decodeSize,
+          memCacheHeight: decodeSize,
           // Fade-in on first decode keeps the swap from feeling jarring
           // when an image hits disk-cache during scroll.
           fadeInDuration: const Duration(milliseconds: 120),

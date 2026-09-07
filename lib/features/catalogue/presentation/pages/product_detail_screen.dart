@@ -637,6 +637,11 @@ class _HeroImage extends StatelessWidget {
           CachedNetworkImage(
             imageUrl: product.imageUrl!,
             fit: BoxFit.cover,
+            // Hero image renders at ~380x280 on the biggest phones we
+            // support. Cap the decoded bitmap at ~1200px wide so we
+            // don't hold a 3000-pixel source image in memory just to
+            // display it a third that size.
+            memCacheWidth: 1200,
             fadeInDuration: const Duration(milliseconds: 120),
             placeholder: (_, __) => fallback,
             errorWidget: (_, __, ___) => fallback,
