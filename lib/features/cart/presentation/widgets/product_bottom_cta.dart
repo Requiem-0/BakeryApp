@@ -157,83 +157,35 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
 
                     const SizedBox(width: 12),
 
-
-                    Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: cs.onSurface.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _StepperButton(
-                            icon: Icons.remove_rounded,
-                            onTap: widget.onDecrement,
-                            filled: false,
-                          ),
-                          SizedBox(
-                            width: 40,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              transitionBuilder: (child, anim) =>
-                                  ScaleTransition(scale: anim, child: child),
-                              child: Text(
-                                '${widget.quantity}',
-                                key: ValueKey(widget.quantity),
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: cs.onSurface,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          _StepperButton(
-                            icon: Icons.add_rounded,
-                            onTap: widget.onIncrement,
-                            filled: true,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-
-                    GestureDetector(
-                      onTap: widget.onCheckout,
-                      child: AnimatedBuilder(
-                        animation: _pulseAnim,
-                        builder: (_, child) => Transform.scale(
-                          scale: _pulseAnim.value,
-                          child: child,
-                        ),
-                        child: Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.45),
-                                blurRadius: 16,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.shopping_basket_rounded,
-                            color: cs.onPrimary,
-                            size: 24,
+                    // Two layouts — one for the empty state, one once
+                    // the customer has added at least one. Swapping via
+                    // AnimatedSwitcher so the morph reads as motion
+                    // instead of a hard replacement.
+                    Expanded(
+                      flex: widget.quantity == 0 ? 3 : 0,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.92, end: 1.0)
+                                .animate(anim),
+                            child: child,
                           ),
                         ),
+                        child: widget.quantity == 0
+                            ? _AddToCartButton(
+                                key: const ValueKey('add'),
+                                onTap: widget.onIncrement,
+                              )
+                            : _StepperAndCheckout(
+                                key: const ValueKey('stepper'),
+                                quantity: widget.quantity,
+                                pulse: _pulseAnim,
+                                onIncrement: widget.onIncrement,
+                                onDecrement: widget.onDecrement,
+                                onCheckout: widget.onCheckout,
+                              ),
                       ),
                     ),
                   ],
@@ -248,6 +200,162 @@ class _ProductBottomCtaState extends State<ProductBottomCta>
 }
 
 
+
+/// Wide primary pill shown when nothing of this product configuration
+/// is in the cart yet. First tap fires [onTap] which adds one to
+/// cart; the parent then swaps this out for [_StepperAndCheckout].
+class _AddToCartButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddToCartButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: cs.primary,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withValues(alpha: 0.4),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_shopping_cart_rounded,
+                color: cs.onPrimary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Add to Cart',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Stepper (−  N  +) plus the pulsing basket-icon "go to cart"
+/// button. Only rendered once the customer has at least one of this
+/// configuration in the cart — the "0" state has no coherent meaning
+/// here, so the parent hands us [_AddToCartButton] instead.
+class _StepperAndCheckout extends StatelessWidget {
+  final int quantity;
+  final Animation<double> pulse;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final VoidCallback onCheckout;
+
+  const _StepperAndCheckout({
+    super.key,
+    required this.quantity,
+    required this.pulse,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onCheckout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: cs.onSurface.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StepperButton(
+                icon: Icons.remove_rounded,
+                onTap: onDecrement,
+                filled: false,
+              ),
+              SizedBox(
+                width: 40,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: anim, child: child),
+                  child: Text(
+                    '$quantity',
+                    key: ValueKey(quantity),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                  ),
+                ),
+              ),
+              _StepperButton(
+                icon: Icons.add_rounded,
+                onTap: onIncrement,
+                filled: true,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: onCheckout,
+          child: AnimatedBuilder(
+            animation: pulse,
+            builder: (_, child) => Transform.scale(
+              scale: pulse.value,
+              child: child,
+            ),
+            child: Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: cs.primary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.primary.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.shopping_basket_rounded,
+                color: cs.onPrimary,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _StepperButton extends StatelessWidget {
   final IconData icon;
